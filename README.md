@@ -1,2 +1,3 @@
-# naive_gbe
-GameBoy Emulator
+# GameBoy Emulator
+
+WIP. Just a few instructions are working.
