@@ -44,6 +44,11 @@ namespace naive_gbe
 		void set_cartridge(cartridge&& cartridge)
 		{
 			cartridge_ = cartridge;
+			auto data = cartridge_.get_data();
+
+			memory_.assign(0x10000, 0);
+			for (std::size_t indx = 0; indx < data.size(); ++indx)
+				memory_[indx] = data[indx];
 		}
 
 	private:

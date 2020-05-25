@@ -14,29 +14,31 @@ int main(int argc, char** argv)
 {
 	if (argc != 2)
 	{
-		std::cerr << "Usage: " << argv[0] << " <rom_file>\n";
+		std::filesystem::path cmd_path = argv[0];
+
+		std::cerr << "Usage: " << cmd_path.filename() << " <rom_file>\n";
 
 		return EXIT_FAILURE;
 	}
 
-	naive_gbe::emulator emu;
+	naive_gbe::emulator emulator;
 	std::error_code ec;
-	std::filesystem::path rom_file = argv[1];
+	std::filesystem::path rom_path = argv[1];
 
-	if (!emu.load(rom_file, ec))
+	if (!emulator.load(rom_path, ec))
 	{
 		std::string error_detail;
 		if (ec)
 			error_detail = ". Error: " + ec.message();
 
 		std::cerr
-			<< "Could not load rom file: " << rom_file.filename()
+			<< "Could not load rom file: " << rom_path
 			<< error_detail << ".\n";
 
 		return EXIT_FAILURE;
 	}
 
-	auto& cpu = emu.get_cpu();
+	auto& cpu = emulator.get_cpu();
 
 	while (true)
 		cpu.step();

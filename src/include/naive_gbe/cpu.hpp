@@ -90,6 +90,11 @@ namespace naive_gbe
 			step(ops_, false);
 		}
 
+		std::size_t get_cycle() const
+		{
+			return cycle_;
+		}
+
 		std::uint8_t get_flags()
 		{
 			return registers_[static_cast<std::size_t>(r8::F)];
@@ -135,7 +140,7 @@ namespace naive_gbe
 
 			auto& op = ops[opcode];
 
-			disassembly(opcode, op, extended);
+			//disassembly(opcode, op, extended);
 
 			op.func_();
 			cycle_ += op.cycles_;
@@ -156,12 +161,12 @@ namespace naive_gbe
 
 			set_register(r16::PC, addr + 2);
 
-			return static_cast<std::uint16_t>(mmu_[addr]);
+			return reinterpret_cast<std::uint16_t&>(mmu_[addr]);
 		}
 
 		void set_flags(uint8_t flags)
 		{
-			registers_[static_cast<std::size_t>(r8::F)] = flags;
+			registers_[static_cast<std::size_t>(r8::F)] = flags & 0xf0;
 		}
 
 		void set_register(r8 index, std::uint8_t value)
@@ -205,25 +210,134 @@ namespace naive_gbe
 			auto& ops = ops_;
 			ops.assign(0x100, operation{ 1, 4, std::bind(&lr35902::op_undefined, this) });
 
-			ops[0x00] = operation{ 1, 4, std::bind(&lr35902::op_nop, this) };
+			ops[0x00] = operation{ 1,  4, std::bind(&lr35902::op_nop, this) };
 			ops[0x01] = operation{ 3, 12, std::bind(&lr35902::op_ld_r16, this, r16::BC) };
+			ops[0x02] = operation{ 1,  8, std::bind(&lr35902::op_ld_bc, this) };
+			ops[0x03] = operation{ 1,  8, std::bind(&lr35902::op_inc_r16, this, r16::BC) };
+			ops[0x04] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, r8::B) };
+			ops[0x05] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, r8::B) };
+			ops[0x06] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, r8::B) };
+			ops[0x0a] = operation{ 1,  8, std::bind(&lr35902::op_ld_a_bc, this) };
+			ops[0x0b] = operation{ 1,  8, std::bind(&lr35902::op_dec_r16, this, r16::BC) };
+			ops[0x0c] = operation{ 3, 12, std::bind(&lr35902::op_inc_r8, this, r8::C) };
+			ops[0x0d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, r8::C) };
+			ops[0x0e] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, r8::C) };
+
+			ops[0x10] = operation{ 2,  4, std::bind(&lr35902::op_stop, this) };
 			ops[0x11] = operation{ 3, 12, std::bind(&lr35902::op_ld_r16, this, r16::DE) };
+			ops[0x12] = operation{ 1,  8, std::bind(&lr35902::op_ld_de, this) };
+			ops[0x13] = operation{ 1,  8, std::bind(&lr35902::op_inc_r16, this, r16::DE) };
+			ops[0x14] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, r8::D) };
+			ops[0x15] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, r8::D) };
+			ops[0x16] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, r8::D) };
+			ops[0x1a] = operation{ 1,  8, std::bind(&lr35902::op_ld_a_de, this) };
+			ops[0x1b] = operation{ 1,  8, std::bind(&lr35902::op_dec_r16, this, r16::DE) };
+			ops[0x1c] = operation{ 3, 12, std::bind(&lr35902::op_inc_r8, this, r8::E) };
+			ops[0x1d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, r8::E) };
+			ops[0x1e] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, r8::E) };
+
 			ops[0x21] = operation{ 3, 12, std::bind(&lr35902::op_ld_r16, this, r16::HL) };
+			ops[0x22] = operation{ 1,  8, std::bind(&lr35902::op_ldi_hl, this) };
+			ops[0x23] = operation{ 1,  8, std::bind(&lr35902::op_inc_r16, this, r16::HL) };
+			ops[0x24] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, r8::H) };
+			ops[0x25] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, r8::H) };
+			ops[0x26] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, r8::H) };
+			ops[0x2a] = operation{ 1,  8, std::bind(&lr35902::op_ldi_a, this) };
+			ops[0x2b] = operation{ 1,  8, std::bind(&lr35902::op_dec_r16, this, r16::HL) };
+			ops[0x2c] = operation{ 3, 12, std::bind(&lr35902::op_inc_r8, this, r8::L) };
+			ops[0x2d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, r8::L) };
+			ops[0x2e] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, r8::L) };
+
 			ops[0x31] = operation{ 3, 12, std::bind(&lr35902::op_ld_r16, this, r16::SP) };
+			ops[0x32] = operation{ 1,  8, std::bind(&lr35902::op_ldd_hl, this) };
+			ops[0x33] = operation{ 1,  8, std::bind(&lr35902::op_inc_r16, this, r16::SP) };
+			ops[0x34] = operation{ 1, 12, std::bind(&lr35902::op_inc_hl, this) };
+			ops[0x35] = operation{ 1, 12, std::bind(&lr35902::op_dec_hl, this) };
+			ops[0x36] = operation{ 2, 12, std::bind(&lr35902::op_ld_hl, this) };
+			ops[0x3a] = operation{ 1,  8, std::bind(&lr35902::op_ldd_a, this) };
+			ops[0x3b] = operation{ 1,  8, std::bind(&lr35902::op_dec_r16, this, r16::SP) };
+			ops[0x3c] = operation{ 3, 12, std::bind(&lr35902::op_inc_r8, this, r8::H) };
+			ops[0x3d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, r8::A) };
+			ops[0x3e] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, r8::A) };
 
-			ops[0x32] = operation{ 1, 8, std::bind(&lr35902::op_ldd_hl, this) };
-			ops[0x3a] = operation{ 1, 8, std::bind(&lr35902::op_ldd_a, this) };
+			ops[0xcb] = operation{ 1,  4, std::bind(&lr35902::op_cb, this) };
 
-			ops[0xcb] = operation{ 1, 4, std::bind(&lr35902::op_cb, this) };
+			ops[0xa8] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, r8::B) };
+			ops[0xa9] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, r8::C) };
+			ops[0xaa] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, r8::D) };
+			ops[0xab] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, r8::E) };
+			ops[0xac] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, r8::H) };
+			ops[0xad] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, r8::L) };
+			ops[0xae] = operation{ 1,  8, std::bind(&lr35902::op_xor_hl, this) };
+			ops[0xaf] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, r8::A) };
 
-			ops[0xa8] = operation{ 1, 4, std::bind(&lr35902::op_xor_r8, this, r8::B) };
-			ops[0xa9] = operation{ 1, 4, std::bind(&lr35902::op_xor_r8, this, r8::C) };
-			ops[0xaa] = operation{ 1, 4, std::bind(&lr35902::op_xor_r8, this, r8::D) };
-			ops[0xab] = operation{ 1, 4, std::bind(&lr35902::op_xor_r8, this, r8::E) };
-			ops[0xac] = operation{ 1, 4, std::bind(&lr35902::op_xor_r8, this, r8::H) };
-			ops[0xad] = operation{ 1, 4, std::bind(&lr35902::op_xor_r8, this, r8::L) };
-			ops[0xae] = operation{ 1, 8, std::bind(&lr35902::op_xor_hl, this) };
-			ops[0xaf] = operation{ 1, 4, std::bind(&lr35902::op_xor_r8, this, r8::A) };
+			ops[0x40] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::B, r8::B) };
+			ops[0x41] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::B, r8::C) };
+			ops[0x42] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::B, r8::D) };
+			ops[0x43] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::B, r8::E) };
+			ops[0x44] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::B, r8::H) };
+			ops[0x45] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::B, r8::L) };
+			ops[0x46] =	operation{ 1,  8, std::bind(&lr35902::op_ld_r8_hl, this, r8::B) };
+			ops[0x47] =	operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::B, r8::A) };
+			ops[0x48] =	operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::C, r8::B) };
+			ops[0x49] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::C, r8::C) };
+			ops[0x4a] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::C, r8::D) };
+			ops[0x4b] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::C, r8::E) };
+			ops[0x4c] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::C, r8::H) };
+			ops[0x4d] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::C, r8::L) };
+			ops[0x4e] =	operation{ 1,  8, std::bind(&lr35902::op_ld_r8_hl, this, r8::C) };
+			ops[0x4f] =	operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::C, r8::B) };
+
+			ops[0x50] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::D, r8::B) };
+			ops[0x51] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::D, r8::C) };
+			ops[0x52] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::D, r8::D) };
+			ops[0x53] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::D, r8::E) };
+			ops[0x54] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::D, r8::H) };
+			ops[0x55] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::D, r8::L) };
+			ops[0x56] = operation{ 1,  8, std::bind(&lr35902::op_ld_r8_hl, this, r8::D) };
+			ops[0x57] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::D, r8::A) };
+			ops[0x58] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::E, r8::B) };
+			ops[0x59] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::E, r8::C) };
+			ops[0x5a] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::E, r8::D) };
+			ops[0x5b] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::E, r8::E) };
+			ops[0x5c] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::E, r8::H) };
+			ops[0x5d] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::E, r8::L) };
+			ops[0x5e] = operation{ 1,  8, std::bind(&lr35902::op_ld_r8_hl, this, r8::E) };
+			ops[0x5f] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::E, r8::B) };
+
+			ops[0x60] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::H, r8::B) };
+			ops[0x61] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::H, r8::C) };
+			ops[0x62] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::H, r8::D) };
+			ops[0x63] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::H, r8::E) };
+			ops[0x64] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::H, r8::H) };
+			ops[0x65] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::H, r8::L) };
+			ops[0x66] = operation{ 1,  8, std::bind(&lr35902::op_ld_r8_hl, this, r8::H) };
+			ops[0x67] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::H, r8::A) };
+			ops[0x68] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::L, r8::B) };
+			ops[0x69] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::L, r8::C) };
+			ops[0x6a] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::L, r8::D) };
+			ops[0x6b] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::L, r8::E) };
+			ops[0x6c] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::L, r8::H) };
+			ops[0x6d] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::L, r8::L) };
+			ops[0x6e] = operation{ 1,  8, std::bind(&lr35902::op_ld_r8_hl, this, r8::L) };
+			ops[0x6f] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::L, r8::B) };
+
+			ops[0x70] = operation{ 1,  8, std::bind(&lr35902::op_ld_hl_r8, this, r8::B) };
+			ops[0x71] = operation{ 1,  8, std::bind(&lr35902::op_ld_hl_r8, this, r8::C) };
+			ops[0x72] = operation{ 1,  8, std::bind(&lr35902::op_ld_hl_r8, this, r8::D) };
+			ops[0x73] = operation{ 1,  8, std::bind(&lr35902::op_ld_hl_r8, this, r8::E) };
+			ops[0x74] = operation{ 1,  8, std::bind(&lr35902::op_ld_hl_r8, this, r8::H) };
+			ops[0x75] = operation{ 1,  8, std::bind(&lr35902::op_ld_hl_r8, this, r8::L) };
+			ops[0x76] = operation{ 1,  4, std::bind(&lr35902::op_halt, this) };
+			ops[0x77] = operation{ 1,  8, std::bind(&lr35902::op_ld_hl_r8, this, r8::A) };
+			ops[0x78] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::A, r8::B) };
+			ops[0x79] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::A, r8::C) };
+			ops[0x7a] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::A, r8::D) };
+			ops[0x7b] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::A, r8::E) };
+			ops[0x7c] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::A, r8::H) };
+			ops[0x7d] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::A, r8::L) };
+			ops[0x7e] = operation{ 1,  8, std::bind(&lr35902::op_ld_r8_hl, this, r8::A) };
+			ops[0x7f] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, r8::A, r8::B) };
 		}
 
 		void set_operation_table_ex()
@@ -290,14 +404,14 @@ namespace naive_gbe
 			ops[0x35] = operation{ 2,  8, std::bind(&lr35902::op_swap_r8, this, r8::L) };
 			ops[0x36] = operation{ 2, 16, std::bind(&lr35902::op_swap_hl, this) };
 			ops[0x37] = operation{ 2,  8, std::bind(&lr35902::op_swap_r8, this, r8::A) };
-			ops[0x38] = operation{ 2,  8, std::bind(&lr35902::op_slr_r8, this, r8::B) };
-			ops[0x39] = operation{ 2,  8, std::bind(&lr35902::op_slr_r8, this, r8::C) };
-			ops[0x3a] = operation{ 2,  8, std::bind(&lr35902::op_slr_r8, this, r8::D) };
-			ops[0x3b] = operation{ 2,  8, std::bind(&lr35902::op_slr_r8, this, r8::E) };
-			ops[0x3c] = operation{ 2,  8, std::bind(&lr35902::op_slr_r8, this, r8::H) };
-			ops[0x3d] = operation{ 2,  8, std::bind(&lr35902::op_slr_r8, this, r8::L) };
-			ops[0x3e] = operation{ 2, 16, std::bind(&lr35902::op_slr_hl, this) };
-			ops[0x3f] = operation{ 2,  8, std::bind(&lr35902::op_slr_r8, this, r8::A) };
+			ops[0x38] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, r8::B) };
+			ops[0x39] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, r8::C) };
+			ops[0x3a] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, r8::D) };
+			ops[0x3b] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, r8::E) };
+			ops[0x3c] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, r8::H) };
+			ops[0x3d] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, r8::L) };
+			ops[0x3e] = operation{ 2, 16, std::bind(&lr35902::op_srl_hl, this) };
+			ops[0x3f] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, r8::A) };
 
 			ops[0x40] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, r8::B) };
 			ops[0x41] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, r8::C) };
@@ -527,6 +641,108 @@ namespace naive_gbe
 		{
 		}
 
+		// STOP
+		// 2 4
+		// - - - -
+		void op_stop()
+		{
+			// TODO
+		}
+
+		// HALT
+		// 1 4
+		// - - - -
+		void op_halt()
+		{
+			// TODO
+		}
+
+		// INC r8
+		// 1 4
+		// Z 0 H -
+		void op_inc_r8(r8 reg)
+		{
+			std::uint8_t value = get_register(reg) + 1;
+			std::uint8_t flags = get_flags() & (std::uint8_t)flags::carry;
+
+			if (value & 0x08)
+				flags |= (std::uint8_t)flags::half_carry;
+			else if (!value)
+				flags |= (std::uint8_t)flags::zero;
+
+			set_register(reg, value);
+			set_flags(flags);
+		}
+
+		// INC (HL)
+		// 1 12
+		// Z 0 H -
+		void op_inc_hl()
+		{
+			std::uint8_t& value = get_hl_ref();
+			std::uint8_t flags = get_flags() & (std::uint8_t)flags::carry;
+
+			value += 1;
+
+			if (value & 0x08)
+				flags |= (std::uint8_t)flags::half_carry;
+			else if (!value)
+				flags |= (std::uint8_t)flags::zero;
+
+			set_flags(flags);
+		}
+
+		// INC r16
+		// 1 8
+		// - - - -
+		void op_inc_r16(r16 reg)
+		{
+			set_register(reg, get_register(reg) + 1);
+		}
+
+		// DEC r8
+		// 1 4
+		// Z 1 H -
+		void op_dec_r8(r8 reg)
+		{
+			std::uint8_t value = get_register(reg) - 1;
+			std::uint8_t flags = (get_flags() & (std::uint8_t)flags::carry) | (std::uint8_t)flags::subtraction;
+
+			if (value & 0x08)
+				flags |= (std::uint8_t)flags::half_carry;
+			else if (!value)
+				flags |= (std::uint8_t)flags::zero;
+
+			set_register(reg, value);
+			set_flags(flags);
+		}
+
+		// DEC (HL)
+		// 1 12
+		// Z 1 H -
+		void op_dec_hl()
+		{
+			std::uint8_t& value = get_hl_ref();
+			std::uint8_t flags = (get_flags() & (std::uint8_t)flags::carry) | (std::uint8_t)flags::subtraction;
+
+			value -= 1;
+
+			if (value & 0x08)
+				flags |= (std::uint8_t)flags::half_carry;
+			else if (!value)
+				flags |= (std::uint8_t)flags::zero;
+
+			set_flags(flags);
+		}
+
+		// DEC r16
+		// 1 8
+		// - - - -
+		void op_dec_r16(r16 reg)
+		{
+			set_register(reg, get_register(reg) - 1);
+		}
+
 		// XOR r8
 		// 1 4
 		// Z 0 0 0
@@ -547,12 +763,106 @@ namespace naive_gbe
 			xor_u8(mmu_[addr]);
 		}
 
+		// LD (BC), A
+		// 1 8
+		// - - - -
+		void op_ld_bc()
+		{
+			mmu_[get_register(r16::BC)] = get_register(r8::A);
+		}
+
+		// LD (DE), A
+		// 1 8
+		// - - - -
+		void op_ld_de()
+		{
+			mmu_[get_register(r16::DE)] = get_register(r8::A);
+		}
+
+		// LD r8, u8
+		// 1 4
+		// - - - -
+		void op_ld_r8(r8 reg)
+		{
+			set_register(reg, fetch_u8());
+		}
+
+		// LD (HL), u8
+		// 2 12
+		// - - - -
+		void op_ld_hl()
+		{
+			get_hl_ref() = fetch_u8();
+		}
+
+		// LD A, (BC)
+		// 1 8
+		// - - - -
+		void op_ld_a_bc()
+		{
+			set_register(r8::A, mmu_[get_register(r16::BC)]);
+		}
+
+		// LD A, (DE)
+		// 1 8
+		// - - - -
+		void op_ld_a_de()
+		{
+			set_register(r8::A, mmu_[get_register(r16::DE)]);
+		}
+
+		// LD r8, r8
+		// 1 4
+		// - - - -
+		void op_ld_r8_r8(r8 rhs, r8 lhs)
+		{
+			set_register(rhs, get_register(lhs));
+		}
+
+		// LD r8, (HL)
+		// 1 4
+		// - - - -
+		void op_ld_r8_hl(r8 reg)
+		{
+			set_register(reg, get_hl_ref());
+		}
+
 		// LD r16, d16
 		// 3 12
 		// - - - -
 		void op_ld_r16(r16 reg)
 		{
 			set_register(reg, fetch_u16());
+		}
+
+		// LD (HL), r8
+		// 1 8
+		// - - - -
+		void op_ld_hl_r8(r8 reg)
+		{
+			get_hl_ref() = get_register(reg);
+		}
+
+		// LDI (HL), A
+		// 1 8
+		// - - - -
+		void op_ldi_hl()
+		{
+			std::uint16_t addr = get_register(r16::HL);
+
+			mmu_[addr] = get_register(r8::A);
+			set_register(r16::HL, addr + 1);
+		}
+
+		// LDI A, (HL)
+		// 1 8
+		// - - - -
+		void op_ldi_a()
+		{
+			std::uint16_t addr = get_register(r16::HL);
+
+			set_register(r8::A, mmu_[addr]);
+			set_register(r16::HL, addr + 1);
 		}
 
 		// LDD (HL), A
@@ -585,11 +895,122 @@ namespace naive_gbe
 			step(ops_ex_, true);
 		}
 
+		std::uint8_t& get_hl_ref()
+		{
+			std::uint16_t addr = get_register(r16::HL);
+			return mmu_[addr];
+		}
+
+		std::uint8_t rlc_r8(std::uint8_t value)
+		{
+			std::uint8_t flags = 0;
+
+			if (value & (std::uint8_t)bits::b7)
+				flags |= (std::uint8_t)flags::carry;
+
+			value = (value << 1) | (value >> 7);
+
+			if (!value)
+				flags |= (std::uint8_t)flags::zero;
+
+			set_flags(flags);
+
+			return value;
+		}
+
+		std::uint8_t rl_r8(std::uint8_t value)
+		{
+			std::uint8_t carry = (std::uint8_t)get_flag(flags::carry);
+			std::uint8_t res = rlc_r8(value);
+
+			return res | carry;
+		}
+
+		std::uint8_t rrc_r8(std::uint8_t value)
+		{
+			std::uint8_t flags = 0;
+
+			if (value & (std::uint8_t)bits::b0)
+				flags |= (std::uint8_t)flags::carry;
+
+			value = (value >> 1) | (value << 7);
+
+			if (!value)
+				flags |= (std::uint8_t)flags::zero;
+
+			set_flags(flags);
+
+			return value;
+		}
+
+		std::uint8_t rr_r8(std::uint8_t value)
+		{
+			std::uint8_t carry = (std::uint8_t)get_flag(flags::carry);
+			std::uint8_t res = rrc_r8(value);
+
+			return res | carry;
+		}
+
+		std::uint8_t sla_r8(std::uint8_t value)
+		{
+			std::uint8_t flags = 0;
+
+			if (value & (std::uint8_t)bits::b7)
+				flags |= (std::uint8_t)flags::carry;
+
+			value = value << 1;
+
+			if (!value)
+				flags |= (std::uint8_t)flags::zero;
+
+			set_flags(flags);
+
+			return value;
+		}
+
+		std::uint8_t sra_r8(std::uint8_t value)
+		{
+			std::uint8_t flags = 0;
+
+			if (value & (std::uint8_t)bits::b0)
+				flags |= (std::uint8_t)flags::carry;
+
+			value = value >> 1;
+
+			if (!value)
+				flags |= (std::uint8_t)flags::zero;
+
+			set_flags(flags);
+
+			return value;
+		}
+
+		std::uint8_t srl_r8(std::uint8_t value)
+		{
+			std::uint8_t flags = 0;
+
+			if (value & (std::uint8_t)bits::b7)
+				flags |= (std::uint8_t)flags::carry;
+
+			value = value << 1;
+
+			if (!value)
+				flags |= (std::uint8_t)flags::zero;
+
+			set_flags(flags);
+
+			return value;
+		}
+
 		// CB RLC r8
 		// 2 8
 		// Z 0 0 C
 		void op_rlc_r8(r8 reg)
 		{
+			std::uint8_t value = get_register(reg);
+			std::uint8_t res = rlc_r8(value);
+
+			set_register(reg, value);
 		}
 
 		// CB RLC (HL)
@@ -597,6 +1018,10 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rlc_hl()
 		{
+			std::uint8_t& value = get_hl_ref();
+			std::uint8_t res = rlc_r8(value);
+
+			value = res;
 		}
 
 		// CB RRC r8
@@ -604,6 +1029,10 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rrc_r8(r8 reg)
 		{
+			std::uint8_t value = get_register(reg);
+			std::uint8_t res = rrc_r8(value);
+
+			set_register(reg, value);
 		}
 
 		// CB RRC (HL)
@@ -611,6 +1040,10 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rrc_hl()
 		{
+			std::uint8_t& value = get_hl_ref();
+			std::uint8_t res = rrc_r8(value);
+
+			value = res;
 		}
 
 		// CB RL r8
@@ -618,6 +1051,10 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rl_r8(r8 reg)
 		{
+			std::uint8_t value = get_register(reg);
+			std::uint8_t res = rl_r8(value);
+
+			set_register(reg, value);
 		}
 
 		// CB RL (HL)
@@ -625,6 +1062,10 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rl_hl()
 		{
+			std::uint8_t& value = get_hl_ref();
+			std::uint8_t res = rl_r8(value);
+
+			value = res;
 		}
 
 		// CB RR r8
@@ -632,6 +1073,10 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rr_r8(r8 reg)
 		{
+			std::uint8_t value = get_register(reg);
+			std::uint8_t res = rr_r8(value);
+
+			set_register(reg, value);
 		}
 
 		// CB RR (HL)
@@ -639,6 +1084,10 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rr_hl()
 		{
+			std::uint8_t& value = get_hl_ref();
+			std::uint8_t res = rr_r8(value);
+
+			value = res;
 		}
 
 		// CB SLA r8
@@ -646,6 +1095,10 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_sla_r8(r8 reg)
 		{
+			std::uint8_t value = get_register(reg);
+			std::uint8_t res = sla_r8(value);
+
+			set_register(reg, value);
 		}
 
 		// CB SLA (HL)
@@ -653,6 +1106,10 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_sla_hl()
 		{
+			std::uint8_t& value = get_hl_ref();
+			std::uint8_t res = sla_r8(value);
+
+			value = res;
 		}
 
 		// CB SRA r8
@@ -660,6 +1117,10 @@ namespace naive_gbe
 		// Z 0 0 0
 		void op_sra_r8(r8 reg)
 		{
+			std::uint8_t value = get_register(reg);
+			std::uint8_t res = sra_r8(value);
+
+			set_register(reg, value);
 		}
 
 		// CB SRA (HL)
@@ -667,6 +1128,10 @@ namespace naive_gbe
 		// Z 0 0 0
 		void op_sra_hl()
 		{
+			std::uint8_t& value = get_hl_ref();
+			std::uint8_t res = sra_r8(value);
+
+			value = res;
 		}
 
 		// CB SWAP r8
@@ -693,18 +1158,26 @@ namespace naive_gbe
 			set_flags(res ? 0 : (std::uint8_t)flags::zero);
 		}
 
-		// CB SLR r8
+		// CB SRL r8
 		// 2 8
 		// Z 0 0 C
-		void op_slr_r8(r8 reg)
+		void op_srl_r8(r8 reg)
 		{
+			std::uint8_t value = get_register(reg);
+			std::uint8_t res = srl_r8(value);
+
+			set_register(reg, value);
 		}
 
-		// CB SLR (HL)
+		// CB SRL (HL)
 		// 2 16
 		// Z 0 0 C
-		void op_slr_hl()
+		void op_srl_hl()
 		{
+			std::uint8_t& value = get_hl_ref();
+			std::uint8_t res = srl_r8(value);
+
+			value = res;
 		}
 
 		// CB BIT r8
@@ -720,9 +1193,7 @@ namespace naive_gbe
 		// Z 0 1 -
 		void op_bit_hl(bits bit)
 		{
-			std::uint16_t addr = get_register(r16::HL);
-
-			bit_u8(bit, mmu_[addr]);
+			bit_u8(bit, get_hl_ref());
 		}
 
 		// CB RES r8
@@ -740,9 +1211,9 @@ namespace naive_gbe
 		// - - - -
 		void op_res_hl(bits bit)
 		{
-			std::uint16_t addr = get_register(r16::HL);
+			std::uint8_t& value = get_hl_ref();
 
-			mmu_[addr] &= ~(static_cast<std::uint8_t>(bit));
+			value &= ~(static_cast<std::uint8_t>(bit));
 		}
 
 		// CB SET r8
@@ -760,15 +1231,15 @@ namespace naive_gbe
 		// - - - -
 		void op_set_hl(bits bit)
 		{
-			std::uint16_t addr = get_register(r16::HL);
+			std::uint8_t& value = get_hl_ref();
 
-			mmu_[addr] |= static_cast<std::uint8_t>(bit);
+			value |= static_cast<std::uint8_t>(bit);
 		}
 
 	private:
 
 		registers		registers_;
-		std::size_t		cycle_;
+		std::uint64_t	cycle_;
 		mmu&			mmu_;
 		operations		ops_;
 		operations		ops_ex_;

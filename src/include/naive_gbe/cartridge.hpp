@@ -21,6 +21,8 @@ namespace naive_gbe
 	{
 	public:
 
+		using buffer = std::vector<std::uint8_t>;
+
 		bool load(std::filesystem::path const& file_name, std::error_code& ec)
 		{
 			if (!std::filesystem::exists(file_name, ec))
@@ -48,10 +50,14 @@ namespace naive_gbe
 			return true;
 		}
 
-	private:
+		buffer const& get_data() const
+		{
+			return data_;
+		}
 
-		std::vector<std::uint8_t>	data_;
+	protected:
+
+		buffer	data_;
 	};
-
 }
 
