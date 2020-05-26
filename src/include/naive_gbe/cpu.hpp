@@ -30,7 +30,7 @@ namespace naive_gbe
 
 		enum class bits : std::uint8_t
 		{
-			b0			= 0,
+			b0			= 1 << 0,
 			b1			= 1 << 1,
 			b2			= 1 << 2,
 			b3			= 1 << 3,
@@ -188,11 +188,11 @@ namespace naive_gbe
 			set_flags((std::uint8_t)flags::zero);
 		}
 
-		void bit_u8(bits bit, std::uint8_t value)
+		void test_bit_u8(bits bit, std::uint8_t value)
 		{
 			std::uint8_t flags = (std::uint8_t)flags::half_carry | (get_flags() & (std::uint8_t)flags::carry);
 
-			if (value & static_cast<std::uint8_t>(bit))
+			if (value & (std::uint8_t)bit)
 				flags |= (std::uint8_t)flags::zero;
 
 			set_flags(flags);
@@ -260,7 +260,7 @@ namespace naive_gbe
 			ops[0x3d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, r8::A) };
 			ops[0x3e] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, r8::A) };
 
-			ops[0xcb] = operation{ 1,  4, std::bind(&lr35902::op_cb, this) };
+			ops[0xcb] = operation{ 0,  0, std::bind(&lr35902::op_cb, this) };
 
 			ops[0xa8] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, r8::B) };
 			ops[0xa9] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, r8::C) };
@@ -1185,7 +1185,7 @@ namespace naive_gbe
 		// Z 0 1 -
 		void op_bit_r8(bits bit, r8 reg)
 		{
-			bit_u8(bit, get_register(reg));
+			test_bit_u8(bit, get_register(reg));
 		}
 
 		// CB BIT (HL)
@@ -1193,7 +1193,7 @@ namespace naive_gbe
 		// Z 0 1 -
 		void op_bit_hl(bits bit)
 		{
-			bit_u8(bit, get_hl_ref());
+			test_bit_u8(bit, get_hl_ref());
 		}
 
 		// CB RES r8
