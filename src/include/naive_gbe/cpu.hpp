@@ -985,14 +985,14 @@ namespace naive_gbe
 			return value;
 		}
 
-		std::uint8_t srl_r8(std::uint8_t value)
+		std::uint8_t right_shift_u8(std::uint8_t value)
 		{
 			std::uint8_t flags = 0;
 
-			if (value & (std::uint8_t)bits::b7)
+			if (value & (std::uint8_t)bits::b0)
 				flags |= (std::uint8_t)flags::carry;
 
-			value = value << 1;
+			value >>= 1;
 
 			if (!value)
 				flags |= (std::uint8_t)flags::zero;
@@ -1114,24 +1114,23 @@ namespace naive_gbe
 
 		// CB SRA r8
 		// 2 8
-		// Z 0 0 0
+		// Z 0 0 C
 		void op_sra_r8(r8 reg)
 		{
 			std::uint8_t value = get_register(reg);
-			std::uint8_t res = sra_r8(value);
 
-			set_register(reg, value);
+			set_register(reg, (value & (std::uint8_t)bits::b7) | right_shift_u8(value));
 		}
 
 		// CB SRA (HL)
 		// 2 16
-		// Z 0 0 0
+		// Z 0 0 C
 		void op_sra_hl()
 		{
 			std::uint8_t& value = get_hl_ref();
-			std::uint8_t res = sra_r8(value);
+			std::uint8_t res = right_shift_u8(value);
 
-			value = res;
+			value = (value & (std::uint8_t)bits::b7) | res;
 		}
 
 		// CB SWAP r8
@@ -1164,9 +1163,8 @@ namespace naive_gbe
 		void op_srl_r8(r8 reg)
 		{
 			std::uint8_t value = get_register(reg);
-			std::uint8_t res = srl_r8(value);
 
-			set_register(reg, value);
+			set_register(reg, right_shift_u8(value));
 		}
 
 		// CB SRL (HL)
@@ -1175,9 +1173,8 @@ namespace naive_gbe
 		void op_srl_hl()
 		{
 			std::uint8_t& value = get_hl_ref();
-			std::uint8_t res = srl_r8(value);
 
-			value = res;
+			value = right_shift_u8(value);
 		}
 
 		// CB BIT n, r8
