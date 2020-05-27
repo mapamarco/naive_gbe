@@ -1180,7 +1180,7 @@ namespace naive_gbe
 			value = res;
 		}
 
-		// CB BIT r8
+		// CB BIT n, r8
 		// 2 8
 		// Z 0 1 -
 		void op_bit_r8(bits bit, r8 reg)
@@ -1188,7 +1188,7 @@ namespace naive_gbe
 			test_bit_u8(bit, get_register(reg));
 		}
 
-		// CB BIT (HL)
+		// CB BIT n, (HL)
 		// 2 16
 		// Z 0 1 -
 		void op_bit_hl(bits bit)
@@ -1196,7 +1196,7 @@ namespace naive_gbe
 			test_bit_u8(bit, get_hl_ref());
 		}
 
-		// CB RES r8
+		// CB RES n, r8
 		// 2 8
 		// - - - -
 		void op_res_r8(bits bit, r8 reg)
@@ -1206,7 +1206,7 @@ namespace naive_gbe
 			set_register(reg, res);
 		}
 
-		// CB RES (HL)
+		// CB RES n, (HL)
 		// 2 16
 		// - - - -
 		void op_res_hl(bits bit)
@@ -1216,7 +1216,7 @@ namespace naive_gbe
 			value &= ~(static_cast<std::uint8_t>(bit));
 		}
 
-		// CB SET r8
+		// CB SET n, r8
 		// 2 8
 		// - - - -
 		void op_set_r8(bits bit, r8 reg)
@@ -1226,7 +1226,7 @@ namespace naive_gbe
 			set_register(reg, res);
 		}
 
-		// CB SET (HL)
+		// CB SET n, (HL)
 		// 2 16
 		// - - - -
 		void op_set_hl(bits bit)
