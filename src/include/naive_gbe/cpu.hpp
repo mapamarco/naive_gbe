@@ -9,10 +9,8 @@
 #include <cstdint>
 #include <vector>
 #include <array>
-#include <algorithm>
 
 #include <naive_gbe/mmu.hpp>
-#include <naive_gbe/disassembler.hpp>
 
 namespace naive_gbe
 {
@@ -107,40 +105,22 @@ namespace naive_gbe
 
 		enum bits : std::uint8_t
 		{
-			b0 = 1 << 0,
-			b1 = 1 << 1,
-			b2 = 1 << 2,
-			b3 = 1 << 3,
-			b4 = 1 << 4,
-			b5 = 1 << 5,
-			b6 = 1 << 6,
-			b7 = 1 << 7,
+			b0			= 1 << 0,
+			b1			= 1 << 1,
+			b2			= 1 << 2,
+			b3			= 1 << 3,
+			b4			= 1 << 4,
+			b5			= 1 << 5,
+			b6			= 1 << 6,
+			b7			= 1 << 7,
 		};
 
 		using operations	= std::vector<operation>;
 		using registers		= std::array<std::uint8_t, 12>;
 
-		void disassembly(std::uint8_t opcode, operation const& op, bool extended)
-		{
-			if (opcode == 0xcb)
-				return;
-
-			std::uint8_t params[4] = { 0, };
-			std::uint16_t addr = get_register(r16::PC);
-
-			std::copy(&mmu_[addr], &mmu_[addr + op.size_ - 1], &params[0]);
-			auto decoded = disasm_.disassembly(opcode, extended, op.size_, params);
-
-			std::cout << decoded << "\n";
-		}
-
 		void step(operations& ops, bool extended)
 		{
-			std::uint8_t opcode = fetch_u8();
-
-			auto& op = ops[opcode];
-
-			//disassembly(opcode, op, extended);
+			auto& op = ops[fetch_u8()];
 
 			op.func_();
 			cycle_ += op.cycles_;
@@ -216,7 +196,7 @@ namespace naive_gbe
 				flags |= flags::zero;
 		}
 
-		void rl_r8(std::uint8_t value, std::uint8_t& flags)
+		void left_rotate_carry_r8(std::uint8_t value, std::uint8_t& flags)
 		{
 			flags &= flags::carry;
 			left_rotate_u8(value, flags);
@@ -1000,7 +980,7 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rl_r8(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			rl_r8(reg, flags);
+			left_rotate_carry_r8(reg, flags);
 		}
 
 		// CB RL (HL)
@@ -1008,7 +988,7 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rl_hl(std::uint8_t& flags)
 		{
-			rl_r8(get_hl_ref(), flags);
+			left_rotate_carry_r8(get_hl_ref(), flags);
 		}
 
 		// CB RR r8
@@ -1159,7 +1139,6 @@ namespace naive_gbe
 		mmu&			mmu_;
 		operations		ops_;
 		operations		ops_cb_;
-		disassembler	disasm_;
 	};
 
 }

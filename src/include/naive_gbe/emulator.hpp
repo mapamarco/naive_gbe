@@ -6,6 +6,8 @@
 //
 #pragma once
 
+#include <algorithm>
+
 #include <naive_gbe/mmu.hpp>
 #include <naive_gbe/cpu.hpp>
 #include <naive_gbe/cartridge.hpp>
@@ -44,6 +46,19 @@ namespace naive_gbe
 		mmu const& get_mmu() const
 		{
 			return mmu_;
+		}
+
+		std::string disassembly(std::uint8_t opcode, lr35902::operation const& op, bool extended)
+		{
+			if (opcode == 0xcb)
+				return "";
+
+			std::uint8_t params[4] = { 0, };
+			std::uint16_t addr = cpu_.get_register(lr35902::r16::PC);
+
+			std::copy(&mmu_[addr], &mmu_[addr + op.size_ - 1], &params[0]);
+
+			return disasm_.disassembly(opcode, extended, op.size_, params);
 		}
 
 	private:
