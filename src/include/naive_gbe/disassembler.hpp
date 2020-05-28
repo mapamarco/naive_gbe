@@ -200,6 +200,20 @@ namespace naive_gbe
 			ops[0xae] = "XOR     (HL)";
 			ops[0xaf] = "XOR     A";
 
+			ops[0xd3] = "UNDEF";
+			ops[0xdb] = "UNDEF";
+			ops[0xdd] = "UNDEF";
+
+			ops[0xe3] = "UNDEF";
+			ops[0xe4] = "UNDEF";
+			ops[0xeb] = "UNDEF";
+			ops[0xec] = "UNDEF";
+			ops[0xed] = "UNDEF";
+
+			ops[0xf4] = "UNDEF";
+			ops[0xfc] = "UNDEF";
+			ops[0xfd] = "UNDEF";
+
 			assert(ops.size() == 0x100);
 		}
 

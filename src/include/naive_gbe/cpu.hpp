@@ -20,7 +20,7 @@ namespace naive_gbe
 	{
 	public:
 
-		enum class flags : std::uint8_t
+		enum flags : std::uint8_t
 		{
 			carry		= 1 << 4,
 			half_carry	= 1 << 5,
@@ -28,19 +28,7 @@ namespace naive_gbe
 			zero		= 1 << 7
 		};
 
-		enum class bits : std::uint8_t
-		{
-			b0			= 1 << 0,
-			b1			= 1 << 1,
-			b2			= 1 << 2,
-			b3			= 1 << 3,
-			b4			= 1 << 4,
-			b5			= 1 << 5,
-			b6			= 1 << 6,
-			b7			= 1 << 7,
-		};
-
-		enum class r8 : std::uint8_t
+		enum r8 : std::uint8_t
 		{
 			A			= 0,
 			F			= 1,
@@ -52,7 +40,7 @@ namespace naive_gbe
 			L			= 7
 		};
 
-		enum class r16 : std::uint8_t
+		enum r16 : std::uint8_t
 		{
 			AF			= 0,
 			BC			= 2,
@@ -76,7 +64,7 @@ namespace naive_gbe
 		{
 			reset();
 			set_operation_table();
-			set_operation_table_ex();
+			set_operation_table_cb();
 		}
 
 		void reset()
@@ -90,32 +78,44 @@ namespace naive_gbe
 			step(ops_, false);
 		}
 
-		std::size_t get_cycle() const
+		constexpr std::size_t get_cycle() const
 		{
 			return cycle_;
 		}
 
-		std::uint8_t get_flags()
+		constexpr std::uint8_t get_flags() const
 		{
-			return registers_[static_cast<std::size_t>(r8::F)];
+			return registers_[r8::F];
 		}
 
-		bool get_flag(flags flag)
+		constexpr bool get_flag(flags flag) const
 		{
-			return registers_[static_cast<std::size_t>(r8::F)] & (std::uint8_t)flag;
+			return registers_[r8::F] & flag;
 		}
 
 		constexpr std::uint8_t get_register(r8 index) const
 		{
-			return registers_[static_cast<std::size_t>(index)];
+			return registers_[index];
 		}
 
 		constexpr std::uint16_t get_register(r16 index) const
 		{
-			return registers_[static_cast<std::size_t>(index)] << 8 | registers_[static_cast<std::size_t>(index) + 1];
+			return registers_[index] << 8 | registers_[index + 1];
 		}
 
 	private:
+
+		enum bits : std::uint8_t
+		{
+			b0 = 1 << 0,
+			b1 = 1 << 1,
+			b2 = 1 << 2,
+			b3 = 1 << 3,
+			b4 = 1 << 4,
+			b5 = 1 << 5,
+			b6 = 1 << 6,
+			b7 = 1 << 7,
+		};
 
 		using operations	= std::vector<operation>;
 		using registers		= std::array<std::uint8_t, 12>;
@@ -166,28 +166,18 @@ namespace naive_gbe
 
 		void set_flags(uint8_t flags)
 		{
-			registers_[static_cast<std::size_t>(r8::F)] = flags & 0xf0;
+			registers_[r8::F] = flags & 0xf0;
 		}
 
 		void set_register(r8 index, std::uint8_t value)
 		{
-			registers_[static_cast<std::size_t>(index)] = value;
+			registers_[index] = value;
 		}
 
 		void set_register(r16 index, std::uint16_t value)
 		{
-			registers_[static_cast<std::size_t>(index) + 1] = value & 0x00ff;
-			registers_[static_cast<std::size_t>(index)] = value >> 8;
-		}
-
-		void test_bit_u8(bits bit, std::uint8_t value)
-		{
-			std::uint8_t flags = (std::uint8_t)flags::half_carry | (get_flags() & (std::uint8_t)flags::carry);
-
-			if (value & (std::uint8_t)bit)
-				flags |= (std::uint8_t)flags::zero;
-
-			set_flags(flags);
+			registers_[index + 1] = value & 0x00ff;
+			registers_[index] = value >> 8;
 		}
 
 		constexpr std::uint8_t swap_nibbles(std::uint8_t value)
@@ -197,7 +187,114 @@ namespace naive_gbe
 
 		auto get_ref(r8 reg)
 		{
-			return std::ref(registers_[static_cast<std::size_t>(reg)]);
+			return std::ref(registers_[reg]);
+		}
+
+		std::uint8_t& get_hl_ref()
+		{
+			return mmu_[get_register(r16::HL)];
+		}
+
+		void test_bit_u8(std::uint8_t bit, std::uint8_t value, std::uint8_t& flags)
+		{
+			flags = flags::half_carry | (flags & flags::carry);
+
+			if (value & bit)
+				flags |= flags::zero;
+		}
+
+		void left_rotate_u8(std::uint8_t& value, std::uint8_t& flags)
+		{
+			flags = 0;
+
+			if (value & bits::b7)
+				flags |= flags::carry;
+
+			value = (value >> 1) | (value << 7);
+
+			if (!value)
+				flags |= flags::zero;
+		}
+
+		void rl_r8(std::uint8_t value, std::uint8_t& flags)
+		{
+			flags &= flags::carry;
+			left_rotate_u8(value, flags);
+		}
+
+		void increment_u8(std::uint8_t& value, std::uint8_t& flags)
+		{
+			flags &= flags::carry;
+
+			++value;
+
+			if (value & bits::b4)
+				flags |= flags::half_carry;
+			else if (!value)
+				flags |= flags::zero;
+		}
+
+		void decrement_u8(std::uint8_t& value, std::uint8_t& flags)
+		{
+			flags = (flags & flags::carry) | flags::subtraction;
+
+			--value;
+
+			if (value & bits::b4)
+				flags |= flags::half_carry;
+			else if (!value)
+				flags |= flags::zero;
+		}
+
+		void right_rotate_u8(std::uint8_t& value, std::uint8_t& flags)
+		{
+			flags = 0;
+
+			if (value & bits::b0)
+				flags |= flags::carry;
+
+			value = (value << 7) | (value >> 1);
+
+			if (!value)
+				flags |= flags::zero;
+		}
+
+		void right_rotate_carry_u8(std::uint8_t& value, std::uint8_t& flags)
+		{
+			flags &= flags::carry;
+
+			value >>= 1;
+
+			if (flags)
+				value |= bits::b7;
+			else if (!value)
+				flags |= flags::zero;
+		}
+
+		void left_shift_u8(std::uint8_t& value, std::uint8_t& flags)
+		{
+			flags = 0;
+
+			if (value & bits::b7)
+				flags |= flags::carry;
+
+			value <<= 1;
+
+			if (!value)
+				flags |= flags::zero;
+		}
+
+		void right_shift_u8(std::uint8_t& value, std::uint8_t& flags)
+		{
+			flags = 0;
+
+			if (value & bits::b0)
+				flags |= flags::carry;
+
+			value >>= 1;
+
+			if (!value)
+				flags |= flags::zero;
 		}
 
 		// OPERATION TABLES
@@ -211,62 +308,62 @@ namespace naive_gbe
 			ops[0x01] = operation{ 3, 12, std::bind(&lr35902::op_ld_r16, this, r16::BC) };
 			ops[0x02] = operation{ 1,  8, std::bind(&lr35902::op_ld_bc, this) };
 			ops[0x03] = operation{ 1,  8, std::bind(&lr35902::op_inc_r16, this, r16::BC) };
-			ops[0x04] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::B)) };
-			ops[0x05] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::B)) };
+			ops[0x04] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x05] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::B), get_ref(r8::F)) };
 			ops[0x06] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, get_ref(r8::B)) };
 			ops[0x0a] = operation{ 1,  8, std::bind(&lr35902::op_ld_a_bc, this) };
 			ops[0x0b] = operation{ 1,  8, std::bind(&lr35902::op_dec_r16, this, r16::BC) };
-			ops[0x0c] = operation{ 3, 12, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::C)) };
-			ops[0x0d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::C)) };
+			ops[0x0c] = operation{ 3, 12, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x0d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::C), get_ref(r8::F)) };
 			ops[0x0e] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, get_ref(r8::C)) };
 
 			ops[0x10] = operation{ 2,  4, std::bind(&lr35902::op_stop, this) };
 			ops[0x11] = operation{ 3, 12, std::bind(&lr35902::op_ld_r16, this, r16::DE) };
 			ops[0x12] = operation{ 1,  8, std::bind(&lr35902::op_ld_de, this) };
 			ops[0x13] = operation{ 1,  8, std::bind(&lr35902::op_inc_r16, this, r16::DE) };
-			ops[0x14] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::D)) };
-			ops[0x15] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::D)) };
+			ops[0x14] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x15] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::D), get_ref(r8::F)) };
 			ops[0x16] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, get_ref(r8::D)) };
 			ops[0x1a] = operation{ 1,  8, std::bind(&lr35902::op_ld_a_de, this) };
 			ops[0x1b] = operation{ 1,  8, std::bind(&lr35902::op_dec_r16, this, r16::DE) };
-			ops[0x1c] = operation{ 3, 12, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::E)) };
-			ops[0x1d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::E)) };
+			ops[0x1c] = operation{ 3, 12, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x1d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::E), get_ref(r8::F)) };
 			ops[0x1e] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, get_ref(r8::E)) };
 
 			ops[0x21] = operation{ 3, 12, std::bind(&lr35902::op_ld_r16, this, r16::HL) };
 			ops[0x22] = operation{ 1,  8, std::bind(&lr35902::op_ldi_hl, this, get_ref(r8::A)) };
 			ops[0x23] = operation{ 1,  8, std::bind(&lr35902::op_inc_r16, this, r16::HL) };
-			ops[0x24] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::H)) };
-			ops[0x25] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::H)) };
+			ops[0x24] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x25] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::H), get_ref(r8::F)) };
 			ops[0x26] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, get_ref(r8::H)) };
 			ops[0x2a] = operation{ 1,  8, std::bind(&lr35902::op_ldi_a, this) };
 			ops[0x2b] = operation{ 1,  8, std::bind(&lr35902::op_dec_r16, this, r16::HL) };
-			ops[0x2c] = operation{ 3, 12, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::L)) };
-			ops[0x2d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::L)) };
+			ops[0x2c] = operation{ 3, 12, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x2d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::L), get_ref(r8::F)) };
 			ops[0x2e] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, get_ref(r8::L)) };
 
 			ops[0x31] = operation{ 3, 12, std::bind(&lr35902::op_ld_r16, this, r16::SP) };
 			ops[0x32] = operation{ 1,  8, std::bind(&lr35902::op_ldd_hl, this) };
 			ops[0x33] = operation{ 1,  8, std::bind(&lr35902::op_inc_r16, this, r16::SP) };
-			ops[0x34] = operation{ 1, 12, std::bind(&lr35902::op_inc_hl, this) };
-			ops[0x35] = operation{ 1, 12, std::bind(&lr35902::op_dec_hl, this) };
+			ops[0x34] = operation{ 1, 12, std::bind(&lr35902::op_inc_hl, this, get_ref(r8::F)) };
+			ops[0x35] = operation{ 1, 12, std::bind(&lr35902::op_dec_hl, this, get_ref(r8::F)) };
 			ops[0x36] = operation{ 2, 12, std::bind(&lr35902::op_ld_hl, this) };
 			ops[0x3a] = operation{ 1,  8, std::bind(&lr35902::op_ldd_a, this) };
 			ops[0x3b] = operation{ 1,  8, std::bind(&lr35902::op_dec_r16, this, r16::SP) };
-			ops[0x3c] = operation{ 3, 12, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::H)) };
-			ops[0x3d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::A)) };
+			ops[0x3c] = operation{ 3, 12, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x3d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::A), get_ref(r8::F)) };
 			ops[0x3e] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, get_ref(r8::A)) };
 
 			ops[0xcb] = operation{ 0,  0, std::bind(&lr35902::op_cb, this) };
 
-			ops[0xa8] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::B)) };
-			ops[0xa9] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::C)) };
-			ops[0xaa] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::D)) };
-			ops[0xab] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::E)) };
-			ops[0xac] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::H)) };
-			ops[0xad] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::L)) };
-			ops[0xae] = operation{ 1,  8, std::bind(&lr35902::op_xor_hl, this, get_ref(r8::A)) };
-			ops[0xaf] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::A)) };
+			ops[0xa8] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::B), get_ref(r8::F)) };
+			ops[0xa9] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::C), get_ref(r8::F)) };
+			ops[0xaa] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::D), get_ref(r8::F)) };
+			ops[0xab] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::E), get_ref(r8::F)) };
+			ops[0xac] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::H), get_ref(r8::F)) };
+			ops[0xad] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::L), get_ref(r8::F)) };
+			ops[0xae] = operation{ 1,  8, std::bind(&lr35902::op_xor_hl, this, get_ref(r8::A), get_ref(r8::F)) };
+			ops[0xaf] = operation{ 1,  4, std::bind(&lr35902::op_xor_r8, this, get_ref(r8::A), get_ref(r8::A), get_ref(r8::F)) };
 
 			ops[0x40] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::B), get_ref(r8::B)) };
 			ops[0x41] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::B), get_ref(r8::C)) };
@@ -335,63 +432,77 @@ namespace naive_gbe
 			ops[0x7d] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::A), get_ref(r8::L)) };
 			ops[0x7e] = operation{ 1,  8, std::bind(&lr35902::op_ld_r8_hl, this, get_ref(r8::A)) };
 			ops[0x7f] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::A), get_ref(r8::B)) };
+
+			ops[0xd3] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xdb] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xdd] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
+
+			ops[0xe3] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xe4] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xeb] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xec] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xed] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
+
+			ops[0xf4] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xfc] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xfd] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
 		}
 
-		void set_operation_table_ex()
+		void set_operation_table_cb()
 		{
-			auto& ops = ops_ex_;
+			auto& ops = ops_cb_;
 			ops.assign(0x100, operation{ 1, 4, std::bind(&lr35902::op_undefined, this) });
 
-			ops[0x00] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::B)) };
-			ops[0x01] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::C)) };
-			ops[0x02] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::D)) };
-			ops[0x03] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::E)) };
-			ops[0x04] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::H)) };
-			ops[0x05] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::L)) };
-			ops[0x06] = operation{ 2, 16, std::bind(&lr35902::op_rlc_hl, this) };
-			ops[0x07] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::A)) };
-			ops[0x08] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::B)) };
-			ops[0x09] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::C)) };
-			ops[0x0a] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::D)) };
-			ops[0x0b] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::E)) };
-			ops[0x0c] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::H)) };
-			ops[0x0d] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::L)) };
-			ops[0x0e] = operation{ 2, 16, std::bind(&lr35902::op_rrc_hl, this) };
-			ops[0x0f] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::A)) };
+			ops[0x00] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x01] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x02] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x03] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x04] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x05] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x06] = operation{ 2, 16, std::bind(&lr35902::op_rlc_hl, this, get_ref(r8::F)) };
+			ops[0x07] = operation{ 2,  8, std::bind(&lr35902::op_rlc_r8, this, get_ref(r8::A), get_ref(r8::F)) };
+			ops[0x08] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x09] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x0a] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x0b] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x0c] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x0d] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x0e] = operation{ 2, 16, std::bind(&lr35902::op_rrc_hl, this, get_ref(r8::F)) };
+			ops[0x0f] = operation{ 2,  8, std::bind(&lr35902::op_rrc_r8, this, get_ref(r8::A), get_ref(r8::F)) };
 
-			ops[0x10] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::B)) };
-			ops[0x11] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::C)) };
-			ops[0x12] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::D)) };
-			ops[0x13] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::E)) };
-			ops[0x14] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::H)) };
-			ops[0x15] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::L)) };
-			ops[0x16] = operation{ 2, 16, std::bind(&lr35902::op_rl_hl, this) };
-			ops[0x17] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::A)) };
-			ops[0x18] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::B)) };
-			ops[0x19] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::C)) };
-			ops[0x1a] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::D)) };
-			ops[0x1b] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::E)) };
-			ops[0x1c] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::H)) };
-			ops[0x1d] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::L)) };
-			ops[0x1e] = operation{ 2, 16, std::bind(&lr35902::op_rr_hl, this) };
-			ops[0x1f] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::A)) };
+			ops[0x10] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x11] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x12] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x13] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x14] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x15] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x16] = operation{ 2, 16, std::bind(&lr35902::op_rl_hl, this, get_ref(r8::F)) };
+			ops[0x17] = operation{ 2,  8, std::bind(&lr35902::op_rl_r8, this, get_ref(r8::A), get_ref(r8::F)) };
+			ops[0x18] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x19] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x1a] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x1b] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x1c] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x1d] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x1e] = operation{ 2, 16, std::bind(&lr35902::op_rr_hl, this, get_ref(r8::F)) };
+			ops[0x1f] = operation{ 2,  8, std::bind(&lr35902::op_rr_r8, this, get_ref(r8::A), get_ref(r8::F)) };
 
-			ops[0x20] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::B)) };
-			ops[0x21] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::C)) };
-			ops[0x22] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::D)) };
-			ops[0x23] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::E)) };
-			ops[0x24] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::H)) };
-			ops[0x25] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::L)) };
-			ops[0x26] = operation{ 2, 16, std::bind(&lr35902::op_sla_hl, this) };
-			ops[0x27] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::A)) };
-			ops[0x28] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::B)) };
-			ops[0x29] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::C)) };
-			ops[0x2a] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::D)) };
-			ops[0x2b] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::E)) };
-			ops[0x2c] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::H)) };
-			ops[0x2d] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::L)) };
-			ops[0x2e] = operation{ 2, 16, std::bind(&lr35902::op_sra_hl, this) };
-			ops[0x2f] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::A)) };
+			ops[0x20] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x21] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x22] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x23] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x24] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x25] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x26] = operation{ 2, 16, std::bind(&lr35902::op_sla_hl, this, get_ref(r8::F)) };
+			ops[0x27] = operation{ 2,  8, std::bind(&lr35902::op_sla_r8, this, get_ref(r8::A), get_ref(r8::F)) };
+			ops[0x28] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x29] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x2a] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x2b] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x2c] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x2d] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x2e] = operation{ 2, 16, std::bind(&lr35902::op_sra_hl, this, get_ref(r8::F)) };
+			ops[0x2f] = operation{ 2,  8, std::bind(&lr35902::op_sra_r8, this, get_ref(r8::A), get_ref(r8::F)) };
 
 			ops[0x30] = operation{ 2,  8, std::bind(&lr35902::op_swap_r8, this, get_ref(r8::B)) };
 			ops[0x31] = operation{ 2,  8, std::bind(&lr35902::op_swap_r8, this, get_ref(r8::C)) };
@@ -401,82 +512,82 @@ namespace naive_gbe
 			ops[0x35] = operation{ 2,  8, std::bind(&lr35902::op_swap_r8, this, get_ref(r8::L)) };
 			ops[0x36] = operation{ 2, 16, std::bind(&lr35902::op_swap_hl, this) };
 			ops[0x37] = operation{ 2,  8, std::bind(&lr35902::op_swap_r8, this, get_ref(r8::A)) };
-			ops[0x38] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::B)) };
-			ops[0x39] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::C)) };
-			ops[0x3a] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::D)) };
-			ops[0x3b] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::E)) };
-			ops[0x3c] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::H)) };
-			ops[0x3d] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::L)) };
-			ops[0x3e] = operation{ 2, 16, std::bind(&lr35902::op_srl_hl, this) };
-			ops[0x3f] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::A)) };
+			ops[0x38] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x39] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x3a] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x3b] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x3c] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x3d] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x3e] = operation{ 2, 16, std::bind(&lr35902::op_srl_hl, this, get_ref(r8::F)) };
+			ops[0x3f] = operation{ 2,  8, std::bind(&lr35902::op_srl_r8, this, get_ref(r8::A), get_ref(r8::F)) };
 
-			ops[0x40] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::B)) };
-			ops[0x41] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::C)) };
-			ops[0x42] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::D)) };
-			ops[0x43] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::E)) };
-			ops[0x44] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::H)) };
-			ops[0x45] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::L)) };
-			ops[0x46] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b0) };
-			ops[0x47] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::A)) };
-			ops[0x48] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::B)) };
-			ops[0x49] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::C)) };
-			ops[0x4a] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::D)) };
-			ops[0x4b] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::E)) };
-			ops[0x4c] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::H)) };
-			ops[0x4d] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::L)) };
-			ops[0x4e] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b1) };
-			ops[0x4f] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::A)) };
+			ops[0x40] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x41] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x42] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x43] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x44] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x45] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x46] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b0, get_ref(r8::F)) };
+			ops[0x47] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b0, get_ref(r8::A), get_ref(r8::F)) };
+			ops[0x48] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x49] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x4a] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x4b] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x4c] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x4d] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x4e] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b1, get_ref(r8::F)) };
+			ops[0x4f] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b1, get_ref(r8::A), get_ref(r8::F)) };
 
-			ops[0x50] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::B)) };
-			ops[0x51] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::C)) };
-			ops[0x52] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::D)) };
-			ops[0x53] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::E)) };
-			ops[0x54] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::H)) };
-			ops[0x55] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::L)) };
-			ops[0x56] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b2) };
-			ops[0x57] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::A)) };
-			ops[0x58] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::B)) };
-			ops[0x59] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::C)) };
-			ops[0x5a] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::D)) };
-			ops[0x5b] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::E)) };
-			ops[0x5c] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::H)) };
-			ops[0x5d] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::L)) };
-			ops[0x5e] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b3) };
-			ops[0x5f] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::A)) };
+			ops[0x50] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x51] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x52] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x53] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x54] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x55] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x56] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b2, get_ref(r8::F)) };
+			ops[0x57] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b2, get_ref(r8::A), get_ref(r8::F)) };
+			ops[0x58] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x59] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x5a] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x5b] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x5c] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x5d] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x5e] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b3, get_ref(r8::F)) };
+			ops[0x5f] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b3, get_ref(r8::A), get_ref(r8::F)) };
 
-			ops[0x60] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::B)) };
-			ops[0x61] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::C)) };
-			ops[0x62] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::D)) };
-			ops[0x63] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::E)) };
-			ops[0x64] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::H)) };
-			ops[0x65] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::L)) };
-			ops[0x66] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b4) };
-			ops[0x67] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::A)) };
-			ops[0x68] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::B)) };
-			ops[0x69] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::C)) };
-			ops[0x6a] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::D)) };
-			ops[0x6b] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::E)) };
-			ops[0x6c] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::H)) };
-			ops[0x6d] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::L)) };
-			ops[0x6e] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b5) };
-			ops[0x6f] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::A)) };
+			ops[0x60] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x61] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x62] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x63] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x64] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x65] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x66] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b4, get_ref(r8::F)) };
+			ops[0x67] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b4, get_ref(r8::A), get_ref(r8::F)) };
+			ops[0x68] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x69] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x6a] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x6b] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x6c] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x6d] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x6e] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b5, get_ref(r8::F)) };
+			ops[0x6f] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b5, get_ref(r8::A), get_ref(r8::F)) };
 
-			ops[0x70] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::B)) };
-			ops[0x71] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::C)) };
-			ops[0x72] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::D)) };
-			ops[0x73] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::E)) };
-			ops[0x74] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::H)) };
-			ops[0x75] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::L)) };
-			ops[0x76] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b6) };
-			ops[0x77] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::A)) };
-			ops[0x78] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::B)) };
-			ops[0x79] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::C)) };
-			ops[0x7a] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::D)) };
-			ops[0x7b] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::E)) };
-			ops[0x7c] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::H)) };
-			ops[0x7d] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::L)) };
-			ops[0x7e] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b7) };
-			ops[0x7f] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::A)) };
+			ops[0x70] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x71] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x72] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x73] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x74] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x75] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x76] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b6, get_ref(r8::F)) };
+			ops[0x77] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b6, get_ref(r8::A), get_ref(r8::F)) };
+			ops[0x78] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::B), get_ref(r8::F)) };
+			ops[0x79] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::C), get_ref(r8::F)) };
+			ops[0x7a] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::D), get_ref(r8::F)) };
+			ops[0x7b] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::E), get_ref(r8::F)) };
+			ops[0x7c] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::H), get_ref(r8::F)) };
+			ops[0x7d] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::L), get_ref(r8::F)) };
+			ops[0x7e] = operation{ 2, 16, std::bind(&lr35902::op_bit_hl, this, bits::b7, get_ref(r8::F)) };
+			ops[0x7f] = operation{ 2,  8, std::bind(&lr35902::op_bit_r8, this, bits::b7, get_ref(r8::A), get_ref(r8::F)) };
 
 			ops[0x80] = operation{ 2,  8, std::bind(&lr35902::op_res_r8, this, bits::b0, get_ref(r8::B)) };
 			ops[0x81] = operation{ 2,  8, std::bind(&lr35902::op_res_r8, this, bits::b0, get_ref(r8::C)) };
@@ -657,36 +768,17 @@ namespace naive_gbe
 		// INC r8
 		// 1 4
 		// Z 0 H -
-		void op_inc_r8(std::uint8_t& reg)
+		void op_inc_r8(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			std::uint8_t flags = get_flags() & (std::uint8_t)flags::carry;
-
-			reg += 1;
-
-			if (reg & 0x08)
-				flags |= (std::uint8_t)flags::half_carry;
-			else if (!reg)
-				flags |= (std::uint8_t)flags::zero;
-
-			set_flags(flags);
+			increment_u8(reg, flags);
 		}
 
 		// INC (HL)
 		// 1 12
 		// Z 0 H -
-		void op_inc_hl()
+		void op_inc_hl(std::uint8_t& flags)
 		{
-			std::uint8_t& value = get_hl_ref();
-			std::uint8_t flags = get_flags() & (std::uint8_t)flags::carry;
-
-			value += 1;
-
-			if (value & 0x08)
-				flags |= (std::uint8_t)flags::half_carry;
-			else if (!value)
-				flags |= (std::uint8_t)flags::zero;
-
-			set_flags(flags);
+			increment_u8(get_hl_ref(), flags);
 		}
 
 		// INC r16
@@ -700,36 +792,17 @@ namespace naive_gbe
 		// DEC r8
 		// 1 4
 		// Z 1 H -
-		void op_dec_r8(std::uint8_t& reg)
+		void op_dec_r8(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			std::uint8_t flags = (get_flags() & (std::uint8_t)flags::carry) | (std::uint8_t)flags::subtraction;
-
-			reg -= 1;
-
-			if (reg & 0x08)
-				flags |= (std::uint8_t)flags::half_carry;
-			else if (!reg)
-				flags |= (std::uint8_t)flags::zero;
-
-			set_flags(flags);
+			decrement_u8(reg, flags);
 		}
 
 		// DEC (HL)
 		// 1 12
 		// Z 1 H -
-		void op_dec_hl()
+		void op_dec_hl(std::uint8_t& flags)
 		{
-			std::uint8_t& value = get_hl_ref();
-			std::uint8_t flags = (get_flags() & (std::uint8_t)flags::carry) | (std::uint8_t)flags::subtraction;
-
-			value -= 1;
-
-			if (value & 0x08)
-				flags |= (std::uint8_t)flags::half_carry;
-			else if (!value)
-				flags |= (std::uint8_t)flags::zero;
-
-			set_flags(flags);
+			decrement_u8(get_hl_ref(), flags);
 		}
 
 		// DEC r16
@@ -743,19 +816,19 @@ namespace naive_gbe
 		// XOR r8
 		// 1 4
 		// Z 0 0 0
-		void op_xor_r8(std::uint8_t& rhs, std::uint8_t& lhs)
+		void op_xor_r8(std::uint8_t& rhs, std::uint8_t& lhs, std::uint8_t& flags)
 		{
 			rhs ^= lhs;
-			set_flags((std::uint8_t)flags::zero);
+			flags = flags::zero;
 		}
 
 		// XOR (HL)
 		// 1 4
 		// Z 0 0 0
-		void op_xor_hl(std::uint8_t& reg)
+		void op_xor_hl(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			reg ^= mmu_[get_register(r16::HL)];
-			set_flags((std::uint8_t)flags::zero);
+			reg ^= get_hl_ref();
+			flags = flags::zero;
 		}
 
 		// LD (BC), A
@@ -887,226 +960,110 @@ namespace naive_gbe
 		// - - - -
 		void op_cb()
 		{
-			step(ops_ex_, true);
-		}
-
-		std::uint8_t& get_hl_ref()
-		{
-			std::uint16_t addr = get_register(r16::HL);
-			return mmu_[addr];
-		}
-
-		std::uint8_t left_rotate_u8(std::uint8_t value)
-		{
-			std::uint8_t flags = 0;
-
-			if (value & (std::uint8_t)bits::b7)
-				flags |= (std::uint8_t)flags::carry;
-
-			value = (value >> 1) | (value << 7);
-
-			if (!value)
-				flags |= (std::uint8_t)flags::zero;
-
-			set_flags(flags);
-
-			return value;
-		}
-
-		std::uint8_t rl_r8(std::uint8_t value)
-		{
-			std::uint8_t carry = (std::uint8_t)get_flag(flags::carry);
-			std::uint8_t res = left_rotate_u8(value);
-
-			return res | carry;
-		}
-
-		std::uint8_t right_rotate_u8(std::uint8_t value)
-		{
-			std::uint8_t flags = 0;
-
-			if (value & (std::uint8_t)bits::b0)
-				flags |= (std::uint8_t)flags::carry;
-
-			value = (value << 7) | (value >> 1);
-
-			if (!value)
-				flags |= (std::uint8_t)flags::zero;
-
-			set_flags(flags);
-
-			return value;
-		}
-
-		std::uint8_t rr_r8(std::uint8_t value)
-		{
-			std::uint8_t carry = (std::uint8_t)get_flag(flags::carry);
-			std::uint8_t res = right_rotate_u8(value);
-
-			return res | carry;
-		}
-
-		std::uint8_t left_shift_u8(std::uint8_t value)
-		{
-			std::uint8_t flags = 0;
-
-			if (value & (std::uint8_t)bits::b7)
-				flags |= (std::uint8_t)flags::carry;
-
-			value <<= 1;
-
-			if (!value)
-				flags |= (std::uint8_t)flags::zero;
-
-			set_flags(flags);
-
-			return value;
-		}
-
-		std::uint8_t sra_r8(std::uint8_t value)
-		{
-			std::uint8_t flags = 0;
-
-			if (value & (std::uint8_t)bits::b0)
-				flags |= (std::uint8_t)flags::carry;
-
-			value = value >> 1;
-
-			if (!value)
-				flags |= (std::uint8_t)flags::zero;
-
-			set_flags(flags);
-
-			return value;
-		}
-
-		std::uint8_t right_shift_u8(std::uint8_t value)
-		{
-			std::uint8_t flags = 0;
-
-			if (value & (std::uint8_t)bits::b0)
-				flags |= (std::uint8_t)flags::carry;
-
-			value >>= 1;
-
-			if (!value)
-				flags |= (std::uint8_t)flags::zero;
-
-			set_flags(flags);
-
-			return value;
+			step(ops_cb_, true);
 		}
 
 		// CB RLC r8
 		// 2 8
 		// Z 0 0 C
-		void op_rlc_r8(std::uint8_t& reg)
+		void op_rlc_r8(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			reg = left_rotate_u8(reg);
+			left_rotate_u8(reg, flags);
 		}
 
 		// CB RLC (HL)
 		// 2 16
 		// Z 0 0 C
-		void op_rlc_hl()
+		void op_rlc_hl(std::uint8_t& flags)
 		{
-			std::uint8_t& value = get_hl_ref();
-
-			value = left_rotate_u8(value);
+			left_rotate_u8(get_hl_ref(), flags);
 		}
 
 		// CB RRC r8
 		// 2 8
 		// Z 0 0 C
-		void op_rrc_r8(std::uint8_t& reg)
+		void op_rrc_r8(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			reg = right_rotate_u8(reg);
+			right_rotate_u8(reg, flags);
 		}
 
 		// CB RRC (HL)
 		// 2 16
 		// Z 0 0 C
-		void op_rrc_hl()
+		void op_rrc_hl(std::uint8_t& flags)
 		{
-			std::uint8_t& value = get_hl_ref();
-
-			value = right_rotate_u8(value);
+			right_rotate_u8(get_hl_ref(), flags);
 		}
 
 		// CB RL r8
 		// 2 8
 		// Z 0 0 C
-		void op_rl_r8(std::uint8_t& reg)
+		void op_rl_r8(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			reg = rl_r8(reg);
+			rl_r8(reg, flags);
 		}
 
 		// CB RL (HL)
 		// 2 16
 		// Z 0 0 C
-		void op_rl_hl()
+		void op_rl_hl(std::uint8_t& flags)
 		{
-			std::uint8_t& value = get_hl_ref();
-			std::uint8_t res = rl_r8(value);
-
-			value = res;
+			rl_r8(get_hl_ref(), flags);
 		}
 
 		// CB RR r8
 		// 2 8
 		// Z 0 0 C
-		void op_rr_r8(std::uint8_t& reg)
+		void op_rr_r8(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			reg = rr_r8(reg);
+			right_rotate_carry_u8(reg, flags);
 		}
 
 		// CB RR (HL)
 		// 2 16
 		// Z 0 0 C
-		void op_rr_hl()
+		void op_rr_hl(std::uint8_t& flags)
 		{
-			std::uint8_t& value = get_hl_ref();
-			std::uint8_t res = rr_r8(value);
-
-			value = res;
+			right_rotate_carry_u8(get_hl_ref(), flags);
 		}
 
 		// CB SLA r8
 		// 2 8
 		// Z 0 0 C
-		void op_sla_r8(std::uint8_t& reg)
+		void op_sla_r8(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			reg = left_shift_u8(reg);
+			left_shift_u8(reg, flags);
 		}
 
 		// CB SLA (HL)
 		// 2 8
 		// Z 0 0 C
-		void op_sla_hl()
+		void op_sla_hl(std::uint8_t& flags)
 		{
-			std::uint8_t& value = get_hl_ref();
-
-			value = left_shift_u8(value);
+			left_shift_u8(get_hl_ref(), flags);
 		}
 
 		// CB SRA r8
 		// 2 8
 		// Z 0 0 C
-		void op_sra_r8(std::uint8_t& reg)
+		void op_sra_r8(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			std::uint8_t value = reg;
-			reg = (value & (std::uint8_t)bits::b7) | right_shift_u8(reg);
+			std::uint8_t bit7 = reg & bits::b7;
+
+			right_shift_u8(reg, flags);
+			reg |= bit7;
 		}
 
 		// CB SRA (HL)
 		// 2 16
 		// Z 0 0 C
-		void op_sra_hl()
+		void op_sra_hl(std::uint8_t& flags)
 		{
 			std::uint8_t& value = get_hl_ref();
-			std::uint8_t res = right_shift_u8(value);
+			std::uint8_t bit7 = value & bits::b7;
 
-			value = (value & (std::uint8_t)bits::b7) | res;
+			right_shift_u8(value, flags);
+			value |= bit7;
 		}
 
 		// CB SWAP r8
@@ -1115,7 +1072,7 @@ namespace naive_gbe
 		void op_swap_r8(std::uint8_t& reg)
 		{
 			reg = swap_nibbles(reg);
-			set_flags(reg ? 0 : (std::uint8_t)flags::zero);
+			set_flags(reg ? 0 : flags::zero);
 		}
 
 		// CB SWAP (HL)
@@ -1128,77 +1085,71 @@ namespace naive_gbe
 
 			mmu_[addr] = res;
 
-			set_flags(res ? 0 : (std::uint8_t)flags::zero);
+			set_flags(res ? 0 : flags::zero);
 		}
 
 		// CB SRL r8
 		// 2 8
 		// Z 0 0 C
-		void op_srl_r8(std::uint8_t& reg)
+		void op_srl_r8(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			reg = right_shift_u8(reg);
+			right_shift_u8(reg, flags);
 		}
 
 		// CB SRL (HL)
 		// 2 16
 		// Z 0 0 C
-		void op_srl_hl()
+		void op_srl_hl(std::uint8_t& flags)
 		{
-			std::uint8_t& value = get_hl_ref();
-
-			value = right_shift_u8(value);
+			right_shift_u8(get_hl_ref(), flags);
 		}
 
 		// CB BIT n, r8
 		// 2 8
 		// Z 0 1 -
-		void op_bit_r8(bits bit, std::uint8_t& reg)
+		void op_bit_r8(std::uint8_t bit, std::uint8_t& reg, std::uint8_t& flags)
 		{
-			test_bit_u8(bit, reg);
+			test_bit_u8(bit, reg, flags);
 		}
 
 		// CB BIT n, (HL)
 		// 2 16
 		// Z 0 1 -
-		void op_bit_hl(bits bit)
+		void op_bit_hl(std::uint8_t bit, std::uint8_t& flags)
 		{
-			test_bit_u8(bit, get_hl_ref());
+			test_bit_u8(bit, get_hl_ref(), flags);
 		}
 
 		// CB RES n, r8
 		// 2 8
 		// - - - -
-		void op_res_r8(bits bit, std::uint8_t& reg)
+		void op_res_r8(std::uint8_t bit, std::uint8_t& reg)
 		{
-			reg &= ~(static_cast<std::uint8_t>(bit));
+			reg &= ~bit;
 		}
 
 		// CB RES n, (HL)
 		// 2 16
 		// - - - -
-		void op_res_hl(bits bit)
+		void op_res_hl(std::uint8_t bit)
 		{
-			std::uint8_t& value = get_hl_ref();
-
-			value &= ~(static_cast<std::uint8_t>(bit));
+			get_hl_ref() &= ~bit;
 		}
 
 		// CB SET n, r8
 		// 2 8
 		// - - - -
-		void op_set_r8(bits bit, std::uint8_t& reg)
+		void op_set_r8(std::uint8_t bit, std::uint8_t& reg)
 		{
-			reg |= static_cast<std::uint8_t>(bit);
+			reg |= bit;
 		}
 
 		// CB SET n, (HL)
 		// 2 16
 		// - - - -
-		void op_set_hl(bits bit)
+		void op_set_hl(std::uint8_t bit)
 		{
-			std::uint8_t& value = get_hl_ref();
-
-			value |= static_cast<std::uint8_t>(bit);
+			get_hl_ref() |= bit;
 		}
 
 	private:
@@ -1207,7 +1158,7 @@ namespace naive_gbe
 		std::uint64_t	cycle_;
 		mmu&			mmu_;
 		operations		ops_;
-		operations		ops_ex_;
+		operations		ops_cb_;
 		disassembler	disasm_;
 	};
 
