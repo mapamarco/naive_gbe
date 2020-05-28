@@ -234,7 +234,7 @@ namespace naive_gbe
 			ops[0x1e] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, get_ref(r8::E)) };
 
 			ops[0x21] = operation{ 3, 12, std::bind(&lr35902::op_ld_r16, this, r16::HL) };
-			ops[0x22] = operation{ 1,  8, std::bind(&lr35902::op_ldi_hl, this) };
+			ops[0x22] = operation{ 1,  8, std::bind(&lr35902::op_ldi_hl, this, get_ref(r8::A)) };
 			ops[0x23] = operation{ 1,  8, std::bind(&lr35902::op_inc_r16, this, r16::HL) };
 			ops[0x24] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::H)) };
 			ops[0x25] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::H)) };
@@ -659,15 +659,15 @@ namespace naive_gbe
 		// Z 0 H -
 		void op_inc_r8(std::uint8_t& reg)
 		{
-			std::uint8_t value = reg + 1;
 			std::uint8_t flags = get_flags() & (std::uint8_t)flags::carry;
 
-			if (value & 0x08)
+			reg += 1;
+
+			if (reg & 0x08)
 				flags |= (std::uint8_t)flags::half_carry;
-			else if (!value)
+			else if (!reg)
 				flags |= (std::uint8_t)flags::zero;
 
-			reg = value;
 			set_flags(flags);
 		}
 
@@ -702,15 +702,15 @@ namespace naive_gbe
 		// Z 1 H -
 		void op_dec_r8(std::uint8_t& reg)
 		{
-			std::uint8_t value = reg - 1;
 			std::uint8_t flags = (get_flags() & (std::uint8_t)flags::carry) | (std::uint8_t)flags::subtraction;
 
-			if (value & 0x08)
+			reg -= 1;
+
+			if (reg & 0x08)
 				flags |= (std::uint8_t)flags::half_carry;
-			else if (!value)
+			else if (!reg)
 				flags |= (std::uint8_t)flags::zero;
 
-			reg = value;
 			set_flags(flags);
 		}
 
@@ -841,11 +841,11 @@ namespace naive_gbe
 		// LDI (HL), A
 		// 1 8
 		// - - - -
-		void op_ldi_hl()
+		void op_ldi_hl(std::uint8_t& reg)
 		{
 			std::uint16_t addr = get_register(r16::HL);
 
-			mmu_[addr] = get_register(r8::A);
+			mmu_[addr] = reg;
 			set_register(r16::HL, addr + 1);
 		}
 
@@ -896,36 +896,11 @@ namespace naive_gbe
 			return mmu_[addr];
 		}
 
-		std::uint8_t rlc_r8(std::uint8_t value)
+		std::uint8_t left_rotate_u8(std::uint8_t value)
 		{
 			std::uint8_t flags = 0;
 
 			if (value & (std::uint8_t)bits::b7)
-				flags |= (std::uint8_t)flags::carry;
-
-			value = (value << 1) | (value >> 7);
-
-			if (!value)
-				flags |= (std::uint8_t)flags::zero;
-
-			set_flags(flags);
-
-			return value;
-		}
-
-		std::uint8_t rl_r8(std::uint8_t value)
-		{
-			std::uint8_t carry = (std::uint8_t)get_flag(flags::carry);
-			std::uint8_t res = rlc_r8(value);
-
-			return res | carry;
-		}
-
-		std::uint8_t rrc_r8(std::uint8_t value)
-		{
-			std::uint8_t flags = 0;
-
-			if (value & (std::uint8_t)bits::b0)
 				flags |= (std::uint8_t)flags::carry;
 
 			value = (value >> 1) | (value << 7);
@@ -938,10 +913,35 @@ namespace naive_gbe
 			return value;
 		}
 
+		std::uint8_t rl_r8(std::uint8_t value)
+		{
+			std::uint8_t carry = (std::uint8_t)get_flag(flags::carry);
+			std::uint8_t res = left_rotate_u8(value);
+
+			return res | carry;
+		}
+
+		std::uint8_t right_rotate_u8(std::uint8_t value)
+		{
+			std::uint8_t flags = 0;
+
+			if (value & (std::uint8_t)bits::b0)
+				flags |= (std::uint8_t)flags::carry;
+
+			value = (value << 7) | (value >> 1);
+
+			if (!value)
+				flags |= (std::uint8_t)flags::zero;
+
+			set_flags(flags);
+
+			return value;
+		}
+
 		std::uint8_t rr_r8(std::uint8_t value)
 		{
 			std::uint8_t carry = (std::uint8_t)get_flag(flags::carry);
-			std::uint8_t res = rrc_r8(value);
+			std::uint8_t res = right_rotate_u8(value);
 
 			return res | carry;
 		}
@@ -953,7 +953,7 @@ namespace naive_gbe
 			if (value & (std::uint8_t)bits::b7)
 				flags |= (std::uint8_t)flags::carry;
 
-			value = value << 1;
+			value <<= 1;
 
 			if (!value)
 				flags |= (std::uint8_t)flags::zero;
@@ -1002,7 +1002,7 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rlc_r8(std::uint8_t& reg)
 		{
-			reg = rlc_r8(reg);
+			reg = left_rotate_u8(reg);
 		}
 
 		// CB RLC (HL)
@@ -1011,9 +1011,8 @@ namespace naive_gbe
 		void op_rlc_hl()
 		{
 			std::uint8_t& value = get_hl_ref();
-			std::uint8_t res = rlc_r8(value);
 
-			value = res;
+			value = left_rotate_u8(value);
 		}
 
 		// CB RRC r8
@@ -1021,7 +1020,7 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rrc_r8(std::uint8_t& reg)
 		{
-			reg = rrc_r8(reg);
+			reg = right_rotate_u8(reg);
 		}
 
 		// CB RRC (HL)
@@ -1030,9 +1029,8 @@ namespace naive_gbe
 		void op_rrc_hl()
 		{
 			std::uint8_t& value = get_hl_ref();
-			std::uint8_t res = rrc_r8(value);
 
-			value = res;
+			value = right_rotate_u8(value);
 		}
 
 		// CB RL r8
@@ -1087,9 +1085,8 @@ namespace naive_gbe
 		void op_sla_hl()
 		{
 			std::uint8_t& value = get_hl_ref();
-			std::uint8_t res = left_shift_u8(value);
 
-			value = res;
+			value = left_shift_u8(value);
 		}
 
 		// CB SRA r8
