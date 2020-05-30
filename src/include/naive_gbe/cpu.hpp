@@ -960,19 +960,19 @@ namespace naive_gbe
 		// XOR r8
 		// 1 4
 		// Z 0 0 0
-		void op_xor_r8(std::uint8_t& rhs, std::uint8_t& lhs, std::uint8_t& flags)
+		void op_xor_r8(std::uint8_t& rhs, std::uint8_t lhs, std::uint8_t& flags)
 		{
 			rhs ^= lhs;
-			flags = flags::zero;
+			set_zero_flag(rhs, flags);
 		}
 
 		// XOR (HL)
-		// 1 4
+		// 1 8
 		// Z 0 0 0
 		void op_xor_hl(std::uint8_t& reg, std::uint8_t& flags)
 		{
 			reg ^= get_hl_ref();
-			flags = flags::zero;
+			set_zero_flag(reg, flags);
 		}
 
 		// LD (BC), A
@@ -1032,7 +1032,7 @@ namespace naive_gbe
 		}
 
 		// LD r8, (HL)
-		// 1 4
+		// 1 8
 		// - - - -
 		void op_ld_r8_hl(std::uint8_t& reg)
 		{
