@@ -522,6 +522,372 @@ TEST(instructions, op_xor_hl)
 	EXPECT_EQ(cpu.get_cycle(), cycle + 8);
 }
 
+TEST(instructions, op_or_r8)
+{
+	// OR r8
+	// 1 4
+	// Z 0 0 0
+
+	mmu mmu;
+	lr35902 cpu{ mmu };
+	std::uint16_t addr = 0;
+	std::uint64_t cycle = 0;
+
+	mmu.set_cartridge(cartridge_buf({
+		0x06, 0x00,			// LD B, 0x00
+		0x0e, 0x01,			// LD C, 0x01
+		0x16, 0x02,			// LD D, 0x02
+		0x1e, 0x04,			// LD E, 0x04
+		0x26, 0x08,			// LD L, 0x08
+		0x2e, 0x10,			// LD H, 0x10
+		0x3e, 0x00,			// LD A, 0x00
+		0xb0,				// OR B
+		0xb1,				// OR C
+		0xb2,				// OR D
+		0xb3,				// OR E
+		0xb4,				// OR H
+		0xb5,				// OR L
+		0xb7,				// OR A
+	}));
+
+	cpu.reset();
+
+	step_n(cpu, 7, addr, cycle);
+
+	std::vector<result> results =
+	{
+		result{ 0x00, 0x80, lr35902::r8::A },
+		result{ 0x01, 0x00, lr35902::r8::A },
+		result{ 0x03, 0x00, lr35902::r8::A },
+		result{ 0x07, 0x00, lr35902::r8::A },
+		result{ 0x0f, 0x00, lr35902::r8::A },
+		result{ 0x1f, 0x00, lr35902::r8::A },
+		result{ 0x1f, 0x00, lr35902::r8::A },
+	};
+
+	for (auto const& res : results)
+	{
+		cpu.step();
+		addr += 1;
+		cycle += 4;
+
+		EXPECT_EQ(cpu.get_register(res.reg), res.value);
+		EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr);
+		EXPECT_EQ(cpu.get_flags(), res.flags);
+		EXPECT_EQ(cpu.get_cycle(), cycle);
+	}
+}
+
+TEST(instructions, op_or_hl)
+{
+	// OR (HL)
+	// 1 8
+	// Z 0 0 0
+
+	mmu mmu;
+	lr35902 cpu{ mmu };
+	std::uint16_t addr = 0;
+	std::uint64_t cycle = 0;
+
+	mmu.set_cartridge(cartridge_buf({
+		0x21, 0x00, 0xc0,	// LD HL, 0xc000
+		0xb6,				// OR (HL)
+		0x3e, 0xc3,			// LD A, 0xc3
+		0x77,				// LD (HL), A
+		0x3e, 0xa5,			// LD A, 0xa5
+		0xb6,				// OR (HL)
+		}));
+
+	cpu.reset();
+	step_n(cpu, 1, addr, cycle);
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r8::A), 0x00);
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr + 1);
+	EXPECT_EQ(cpu.get_flags(), 0x80);
+	EXPECT_EQ(cpu.get_cycle(), cycle + 8);
+
+	step_n(cpu, 3, addr, cycle);
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r8::A), 0xe7);
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr + 1);
+	EXPECT_EQ(cpu.get_flags(), 0x00);
+	EXPECT_EQ(cpu.get_cycle(), cycle + 8);
+}
+
+TEST(instructions, op_cp_r8)
+{
+	// CP r8
+	// 1 4
+	// Z 1 H C
+
+	mmu mmu;
+	lr35902 cpu{ mmu };
+	std::uint16_t addr = 0;
+	std::uint64_t cycle = 0;
+
+	mmu.set_cartridge(cartridge_buf({
+		0x06, 0x00,			// LD B, 0x00
+		0x0e, 0x40,			// LD C, 0x40
+		0x16, 0x3c,			// LD D, 0x3c
+		0x1e, 0x00,			// LD E, 0x00
+		0x26, 0x40,			// LD L, 0x40
+		0x2e, 0x3c,			// LD H, 0x3c
+		0x3e, 0x3c,			// LD A, 0x3c
+		0xb8,				// CP B
+		0xb9,				// CP C
+		0xba,				// CP D
+		0xbb,				// CP E
+		0xbc,				// CP H
+		0xbd,				// CP L
+		0xbf,				// CP A
+	}));
+
+	cpu.reset();
+
+	step_n(cpu, 7, addr, cycle);
+
+	std::vector<result> results =
+	{
+		result{ 0x00, 0x40 },
+		result{ 0x00, 0x50 },
+		result{ 0x00, 0xc0 },
+		result{ 0x00, 0x40 },
+		result{ 0x00, 0x50 },
+		result{ 0x00, 0xc0 },
+		result{ 0x00, 0xc0 },
+	};
+
+	for (auto const& res : results)
+	{
+		cpu.step();
+		addr += 1;
+		cycle += 4;
+
+		EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr);
+		EXPECT_EQ(cpu.get_flags(), res.flags);
+		EXPECT_EQ(cpu.get_cycle(), cycle);
+	}
+}
+
+TEST(instructions, op_cp_hl)
+{
+	// CP (HL)
+	// 1 8
+	// Z 1 H C
+
+	mmu mmu;
+	lr35902 cpu{ mmu };
+	std::uint16_t addr = 0;
+	std::uint64_t cycle = 0;
+
+	mmu.set_cartridge(cartridge_buf({
+		0x21, 0x00, 0xc0,	// LD HL, 0xc000
+		0x3e, 0x40,			// LD A, 0x40
+		0x77,				// LD (HL), A
+		0x3e, 0x3c,			// LD A, 0x3c
+		0xbe,				// CP (HL)
+		0x3e, 0x40,			// LD A, 0x40
+		0xbe,				// CP (HL)
+	}));
+
+	cpu.reset();
+	step_n(cpu, 4, addr, cycle);
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr + 1);
+	EXPECT_EQ(cpu.get_flags(), 0x50);
+	EXPECT_EQ(cpu.get_cycle(), cycle + 8);
+
+	step_n(cpu, 1, addr, cycle);
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr + 1);
+	EXPECT_EQ(cpu.get_flags(), 0xc0);
+	EXPECT_EQ(cpu.get_cycle(), cycle + 8);
+}
+
+TEST(instructions, op_undefined)
+{
+	// UNDEF
+	// 1 4
+	// - - - -
+
+	mmu mmu;
+	lr35902 cpu{ mmu };
+	std::uint16_t addr = 0;
+	std::uint64_t cycle = 0;
+
+	mmu.set_cartridge(cartridge_buf({
+		0xd3,				// UNDEF
+		0xdb,				// UNDEF
+		0xdd,				// UNDEF
+		0xe3,				// UNDEF
+		0xe4,				// UNDEF
+		0xeb,				// UNDEF
+		0xec,				// UNDEF
+		0xed,				// UNDEF
+		0xf4,				// UNDEF
+		0xfc,				// UNDEF
+		0xfd,				// UNDEF
+	}));
+
+	cpu.reset();
+
+	step_n(cpu, 7, addr, cycle);
+
+	std::vector<result> results =
+	{
+		result{ 0x00, 0x00 },
+		result{ 0x00, 0x00 },
+		result{ 0x00, 0x00 },
+		result{ 0x00, 0x00 },
+		result{ 0x00, 0x00 },
+		result{ 0x00, 0x00 },
+		result{ 0x00, 0x00 },
+		result{ 0x00, 0x00 },
+		result{ 0x00, 0x00 },
+		result{ 0x00, 0x00 },
+		result{ 0x00, 0x00 },
+	};
+
+	for (auto const& res : results)
+	{
+		cpu.step();
+		addr += 1;
+		cycle += 4;
+
+		EXPECT_EQ(cpu.get_register(res.reg), res.value);
+		EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr);
+		EXPECT_EQ(cpu.get_flags(), res.flags);
+		EXPECT_EQ(cpu.get_cycle(), cycle);
+	}
+}
+
+TEST(instructions, op_cb)
+{
+	// CB
+	// 0 0
+	// - - - -
+
+	mmu mmu;
+	lr35902 cpu{ mmu };
+	std::uint16_t addr = 0;
+	std::uint64_t cycle = 0;
+
+	mmu.set_cartridge(cartridge_buf({
+		0x3e, 0x0f,			// LD A, 0x0f
+		0xcb, 0x37,			// CB SWAP A
+	}));
+
+	cpu.reset();
+
+	step_n(cpu, 1, addr, cycle);
+
+	cpu.step();
+
+	EXPECT_EQ(cpu.get_register(lr35902::r8::A), 0xf0);
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr + 2);
+	EXPECT_EQ(cpu.get_flags(), 0x00);
+	EXPECT_EQ(cpu.get_cycle(), cycle + 8);
+}
+
+TEST(instructions, op_and_r8)
+{
+	// AND r8
+	// 1 4
+	// Z 0 1 0
+
+	mmu mmu;
+	lr35902 cpu{ mmu };
+	std::uint16_t addr = 0;
+	std::uint64_t cycle = 0;
+
+	mmu.set_cartridge(cartridge_buf({
+		0x06, 0xfe,			// LD B, 0xfe
+		0x0e, 0xfc,			// LD C, 0xfc
+		0x16, 0xf8,			// LD D, 0xf8
+		0x1e, 0xf0,			// LD E, 0xf0
+		0x26, 0xe0,			// LD L, 0xe0
+		0x2e, 0x0f,			// LD H, 0x0f
+		0x3e, 0xff,			// LD A, 0xff
+		0xa0,				// AND B
+		0xa1,				// AND C
+		0xa2,				// AND D
+		0xa3,				// AND E
+		0xa4,				// AND H
+		0xa5,				// AND L
+		0xa7,				// AND A
+	}));
+
+	cpu.reset();
+
+	step_n(cpu, 7, addr, cycle);
+
+	std::vector<result> results =
+	{
+		result{ 0xfe, 0x20, lr35902::r8::A },
+		result{ 0xfc, 0x20, lr35902::r8::A },
+		result{ 0xf8, 0x20, lr35902::r8::A },
+		result{ 0xf0, 0x20, lr35902::r8::A },
+		result{ 0xe0, 0x20, lr35902::r8::A },
+		result{ 0x00, 0xa0, lr35902::r8::A },
+		result{ 0x00, 0xa0, lr35902::r8::A },
+	};
+
+	for (auto const& res : results)
+	{
+		cpu.step();
+		addr += 1;
+		cycle += 4;
+
+		EXPECT_EQ(cpu.get_register(res.reg), res.value);
+		EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr);
+		EXPECT_EQ(cpu.get_flags(), res.flags);
+		EXPECT_EQ(cpu.get_cycle(), cycle);
+	}
+}
+
+TEST(instructions, op_and_hl)
+{
+	// AND (HL)
+	// 1 8
+	// Z 0 1 0
+
+	mmu mmu;
+	lr35902 cpu{ mmu };
+	std::uint16_t addr = 0;
+	std::uint64_t cycle = 0;
+
+	mmu.set_cartridge(cartridge_buf({
+		0x21, 0x00, 0xc0,	// LD HL, 0xc000
+		0x3e, 0xc3,			// LD A, 0xc3
+		0xa6,				// AND (HL)
+		0x3e, 0xc3,			// LD A, 0xc3
+		0x77,				// LD (HL), A
+		0x3e, 0xa5,			// LD A, 0xa5
+		0xa6,				// AND (HL)
+	}));
+
+	cpu.reset();
+	step_n(cpu, 2, addr, cycle);
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r8::A), 0x00);
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr + 1);
+	EXPECT_EQ(cpu.get_flags(), 0xa0);
+	EXPECT_EQ(cpu.get_cycle(), cycle + 8);
+
+	step_n(cpu, 3, addr, cycle);
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r8::A), 0x81);
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr + 1);
+	EXPECT_EQ(cpu.get_flags(), 0x20);
+	EXPECT_EQ(cpu.get_cycle(), cycle + 8);
+}
+
 TEST(instructions, op_ld_r8)
 {
 	// LD r8, u8
