@@ -407,7 +407,7 @@ namespace naive_gbe
 			ops[0x4c] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::C), get_ref(r8::H)) };
 			ops[0x4d] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::C), get_ref(r8::L)) };
 			ops[0x4e] = operation{ 1,  8, std::bind(&lr35902::op_ld_r8_hl, this, get_ref(r8::C)) };
-			ops[0x4f] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::C), get_ref(r8::B)) };
+			ops[0x4f] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::C), get_ref(r8::A)) };
 
 			ops[0x50] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::D), get_ref(r8::B)) };
 			ops[0x51] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::D), get_ref(r8::C)) };
@@ -424,7 +424,7 @@ namespace naive_gbe
 			ops[0x5c] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::E), get_ref(r8::H)) };
 			ops[0x5d] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::E), get_ref(r8::L)) };
 			ops[0x5e] = operation{ 1,  8, std::bind(&lr35902::op_ld_r8_hl, this, get_ref(r8::E)) };
-			ops[0x5f] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::E), get_ref(r8::B)) };
+			ops[0x5f] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::E), get_ref(r8::A)) };
 
 			ops[0x60] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::H), get_ref(r8::B)) };
 			ops[0x61] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::H), get_ref(r8::C)) };
@@ -441,7 +441,7 @@ namespace naive_gbe
 			ops[0x6c] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::L), get_ref(r8::H)) };
 			ops[0x6d] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::L), get_ref(r8::L)) };
 			ops[0x6e] = operation{ 1,  8, std::bind(&lr35902::op_ld_r8_hl, this, get_ref(r8::L)) };
-			ops[0x6f] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::L), get_ref(r8::B)) };
+			ops[0x6f] = operation{ 1,  4, std::bind(&lr35902::op_ld_r8_r8, this, get_ref(r8::L), get_ref(r8::A)) };
 
 			ops[0x70] = operation{ 1,  8, std::bind(&lr35902::op_ld_hl_r8, this, get_ref(r8::B)) };
 			ops[0x71] = operation{ 1,  8, std::bind(&lr35902::op_ld_hl_r8, this, get_ref(r8::C)) };
