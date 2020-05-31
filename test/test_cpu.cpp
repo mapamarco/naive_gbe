@@ -703,7 +703,7 @@ TEST(instructions, op_add_r8)
 	}
 }
 
-TEST(instructions, op_add_hl)
+TEST(instructions, op_add_r8_hl)
 {
 	// ADD A, (HL)
 	// 2 8
@@ -730,7 +730,7 @@ TEST(instructions, op_add_hl)
 
 	cpu.step();
 	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr + 1);
-	EXPECT_EQ(mmu[0xc000], 0x00);
+	EXPECT_EQ(cpu.get_register(lr35902::r8::A), 0x00);
 	EXPECT_EQ(cpu.get_flags(), 0xb0);
 	EXPECT_EQ(cpu.get_cycle(), cycle + 8);
 
@@ -738,9 +738,60 @@ TEST(instructions, op_add_hl)
 
 	cpu.step();
 	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr + 1);
-	EXPECT_EQ(mmu[0xc000], 0x0f);
+	EXPECT_EQ(cpu.get_register(lr35902::r8::A), 0xd5);
+	EXPECT_EQ(cpu.get_flags(), 0x20);
+	EXPECT_EQ(cpu.get_cycle(), cycle + 8);
+}
+
+TEST(instructions, op_add_hl_r16)
+{
+	// ADD HL, r16
+	// 1 8
+	// - 0 H C
+
+	mmu mmu;
+	lr35902 cpu{ mmu };
+	std::uint16_t addr = 0;
+	std::uint64_t cycle = 0;
+
+	mmu.set_cartridge(cartridge_buf({
+		0x31, 0x22, 0x11,	// LD SP, 0x1122
+		0x01, 0x44, 0x33,	// LD BC, 0x3344
+		0x11, 0x66, 0x55,	// LD DE, 0x5566
+		0x21, 0x01, 0x00,	// LD HL, 0x0001
+		0x09,				// ADD HL, BC
+		0x19,				// ADD HL, DE
+		0x29,				// ADD HL, HL
+		0x39,				// ADD HL, SP
+	}));
+
+	cpu.reset();
+
+	step_n(cpu, 4, addr, cycle);
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr + 1);
+	EXPECT_EQ(cpu.get_register(lr35902::r16::HL), 0x3345);
 	EXPECT_EQ(cpu.get_flags(), 0x00);
 	EXPECT_EQ(cpu.get_cycle(), cycle + 8);
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr + 2);
+	EXPECT_EQ(cpu.get_register(lr35902::r16::HL), 0x88ab);
+	EXPECT_EQ(cpu.get_flags(), 0x00);
+	EXPECT_EQ(cpu.get_cycle(), cycle + 16);
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr + 3);
+	EXPECT_EQ(cpu.get_register(lr35902::r16::HL), 0x1156);
+	EXPECT_EQ(cpu.get_flags(), 0x30);
+	EXPECT_EQ(cpu.get_cycle(), cycle + 24);
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), addr + 4);
+	EXPECT_EQ(cpu.get_register(lr35902::r16::HL), 0x2278);
+	EXPECT_EQ(cpu.get_flags(), 0x00);
+	EXPECT_EQ(cpu.get_cycle(), cycle + 32);
 }
 
 TEST(instructions, op_ldi_r8)
