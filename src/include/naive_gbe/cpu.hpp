@@ -278,10 +278,10 @@ namespace naive_gbe
 		{
 			flags = flags::subtraction;
 
-			if (lhs > (rhs + carry))
+			if (rhs + carry > lhs)
 				flags |= flags::carry;
 
-			if ((lhs & 0x0f) > ((rhs & 0x0f) + carry))
+			if (((rhs & 0x0f) + carry) > (lhs & 0x0f))
 				flags |= flags::half_carry;
 
 			lhs -= rhs + carry;
@@ -933,7 +933,7 @@ namespace naive_gbe
 		// Z 0 H C
 		void op_sub_hl(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			sub(get_hl_ref(), reg, 0, flags);
+			sub(reg, get_hl_ref(), 0, flags);
 		}
 
 		// SBC A, r8
