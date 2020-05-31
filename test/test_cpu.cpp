@@ -546,7 +546,7 @@ TEST(instructions, op_sub_r8)
 {
 	// SUB A, r8
 	// 1 4
-	// Z 0 H C
+	// Z 1 H C
 
 	mmu mmu;
 	lr35902 cpu{ mmu };
@@ -741,6 +741,64 @@ TEST(instructions, op_add_r8_hl)
 	EXPECT_EQ(cpu.get_register(lr35902::r8::A), 0xd5);
 	EXPECT_EQ(cpu.get_flags(), 0x20);
 	EXPECT_EQ(cpu.get_cycle(), cycle + 8);
+}
+
+TEST(instructions, op_di)
+{
+	// DI
+	// 1 4
+	// - - - -
+
+	mmu mmu;
+	lr35902 cpu{ mmu };
+
+	mmu.set_cartridge(cartridge_buf({
+		0xfb,				// EI
+		0xf3,				// DI
+	}));
+
+	cpu.reset();
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), 1);
+	EXPECT_EQ(cpu.get_flags(), 0x00);
+	EXPECT_EQ(cpu.get_ime(), 1);
+	EXPECT_EQ(cpu.get_cycle(), 4);
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), 2);
+	EXPECT_EQ(cpu.get_flags(), 0x00);
+	EXPECT_EQ(cpu.get_ime(), 0);
+	EXPECT_EQ(cpu.get_cycle(), 8);
+}
+
+TEST(instructions, op_ei)
+{
+	// EI
+	// 1 4
+	// - - - -
+
+	mmu mmu;
+	lr35902 cpu{ mmu };
+
+	mmu.set_cartridge(cartridge_buf({
+		0xf3,				// DI
+		0xfb,				// EI
+	}));
+
+	cpu.reset();
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), 1);
+	EXPECT_EQ(cpu.get_flags(), 0x00);
+	EXPECT_EQ(cpu.get_ime(), 0);
+	EXPECT_EQ(cpu.get_cycle(), 4);
+
+	cpu.step();
+	EXPECT_EQ(cpu.get_register(lr35902::r16::PC), 2);
+	EXPECT_EQ(cpu.get_flags(), 0x00);
+	EXPECT_EQ(cpu.get_ime(), 1);
+	EXPECT_EQ(cpu.get_cycle(), 8);
 }
 
 TEST(instructions, op_add_hl_r16)
