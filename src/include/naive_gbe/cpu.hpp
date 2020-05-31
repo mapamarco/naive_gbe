@@ -500,8 +500,6 @@ namespace naive_gbe
 			ops[0x9e] = operation{ 1,  8, std::bind(&lr35902::op_sbc_hl, this, get_ref(r8::A), get_ref(r8::F)) };
 			ops[0x9f] = operation{ 1,  4, std::bind(&lr35902::op_sbc_r8, this, get_ref(r8::A), get_ref(r8::A), get_ref(r8::F)) };
 
-			ops[0xcb] = operation{ 0,  0, std::bind(&lr35902::op_cb, this) };
-
 			ops[0xa0] = operation{ 1,  4, std::bind(&lr35902::op_and_r8, this, get_ref(r8::A), get_ref(r8::B), get_ref(r8::F)) };
 			ops[0xa1] = operation{ 1,  4, std::bind(&lr35902::op_and_r8, this, get_ref(r8::A), get_ref(r8::C), get_ref(r8::F)) };
 			ops[0xa2] = operation{ 1,  4, std::bind(&lr35902::op_and_r8, this, get_ref(r8::A), get_ref(r8::D), get_ref(r8::F)) };
@@ -536,19 +534,38 @@ namespace naive_gbe
 			ops[0xbe] = operation{ 1,  8, std::bind(&lr35902::op_cp_hl, this, get_ref(r8::A), get_ref(r8::F)) };
 			ops[0xbf] = operation{ 1,  4, std::bind(&lr35902::op_cp_r8, this, get_ref(r8::A), get_ref(r8::A), get_ref(r8::F)) };
 
-			ops[0xd3] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
-			ops[0xdb] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
-			ops[0xdd] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xc1] = operation{ 1, 12, std::bind(&lr35902::op_pop, this, get_ref(r8::B), get_ref(r8::C)) };
+			ops[0xc5] = operation{ 1, 16, std::bind(&lr35902::op_push, this, get_ref(r8::B), get_ref(r8::C)) };
+			ops[0xc7] = operation{ 1, 16, std::bind(&lr35902::op_rst, this, 0x0000) };
+			ops[0xcb] = operation{ 0,  0, std::bind(&lr35902::op_cb, this) };
+			ops[0xc9] = operation{ 1, 16, std::bind(&lr35902::op_ret, this) };
+			ops[0xcf] = operation{ 1, 16, std::bind(&lr35902::op_rst, this, 0x0008) };
 
-			ops[0xe3] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
-			ops[0xe4] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
-			ops[0xeb] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
-			ops[0xec] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
-			ops[0xed] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xd1] = operation{ 1, 12, std::bind(&lr35902::op_pop, this, get_ref(r8::D), get_ref(r8::E)) };
+			ops[0xd3] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xd5] = operation{ 1, 16, std::bind(&lr35902::op_push, this, get_ref(r8::D), get_ref(r8::E)) };
+			ops[0xd7] = operation{ 1, 16, std::bind(&lr35902::op_rst, this, 0x0010) };
+			ops[0xdb] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xdd] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xdf] = operation{ 1, 16, std::bind(&lr35902::op_rst, this, 0x0018) };
 
-			ops[0xf4] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
-			ops[0xfc] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
-			ops[0xfd] = operation{ 1, 4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xe1] = operation{ 1, 12, std::bind(&lr35902::op_pop, this, get_ref(r8::H), get_ref(r8::L)) };
+			ops[0xe3] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xe4] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xe5] = operation{ 1, 16, std::bind(&lr35902::op_push, this, get_ref(r8::H), get_ref(r8::L)) };
+			ops[0xe7] = operation{ 1, 16, std::bind(&lr35902::op_rst, this, 0x0020) };
+			ops[0xeb] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xec] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xed] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xef] = operation{ 1, 16, std::bind(&lr35902::op_rst, this, 0x0028) };
+
+			ops[0xf1] = operation{ 1, 12, std::bind(&lr35902::op_pop, this, get_ref(r8::A), get_ref(r8::F)) };
+			ops[0xf4] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xf5] = operation{ 1, 16, std::bind(&lr35902::op_push, this, get_ref(r8::A), get_ref(r8::F)) };
+			ops[0xf7] = operation{ 1, 16, std::bind(&lr35902::op_rst, this, 0x0030) };
+			ops[0xfc] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xfd] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xff] = operation{ 1, 16, std::bind(&lr35902::op_rst, this, 0x0038) };
 		}
 
 		void set_operation_table_cb()
@@ -866,6 +883,61 @@ namespace naive_gbe
 		void op_halt()
 		{
 			// TODO
+		}
+
+		// POP r16
+		// 1 12
+		// - - - -
+		void op_pop(std::uint8_t& high, std::uint8_t& low)
+		{
+			std::uint16_t addr = get_register(r16::SP);
+
+			low  = mmu_[addr++];
+			high = mmu_[addr++];
+
+			set_register(r16::SP, addr);
+		}
+
+		// PUSH r16
+		// 1 16
+		// - - - -
+		void op_push(std::uint8_t high, std::uint8_t low)
+		{
+			std::uint16_t addr = get_register(r16::SP);
+
+			mmu_[--addr] = high;
+			mmu_[--addr] = low;
+
+			set_register(r16::SP, addr);
+		}
+
+		// RST addr
+		// 1 16
+		// - - - -
+		void op_rst(std::uint16_t reset_addr)
+		{
+			std::uint16_t value = get_register(r16::PC);
+			std::uint16_t addr = get_register(r16::SP);
+
+			mmu_[--addr] = (value & 0xff00) >> 8;
+			mmu_[--addr] = value & 0x00ff;
+
+			set_register(r16::SP, addr);
+			set_register(r16::PC, reset_addr);
+		}
+
+		// RET
+		// 1 16
+		// - - - -
+		void op_ret()
+		{
+			std::uint16_t addr = get_register(r16::SP);
+
+			std::uint8_t low  = mmu_[addr++];
+			std::uint8_t high = mmu_[addr++];
+
+			set_register(r16::SP, addr);
+			set_register(r16::PC, (high << 8) | low);
 		}
 
 		// SCF
