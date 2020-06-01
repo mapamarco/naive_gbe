@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <vector>
 #include <array>
+#include <cassert>
 
 #include <naive_gbe/mmu.hpp>
 
@@ -61,6 +62,7 @@ namespace naive_gbe
 			mmu_(mmu)
 		{
 			reset();
+			set_daa_table();
 			set_operation_table();
 			set_operation_table_cb();
 		}
@@ -121,8 +123,15 @@ namespace naive_gbe
 			b7			= 1 << 7,
 		};
 
-		using operations	= std::vector<operation>;
+		struct daa
+		{
+			std::uint8_t	value_	= 0;
+			bool			carry_	= false;
+		};
+
 		using registers		= std::array<std::uint8_t, 12>;
+		using daas			= std::vector<daa>;
+		using operations	= std::vector<operation>;
 
 		void step(operations& ops, bool extended)
 		{
@@ -240,22 +249,32 @@ namespace naive_gbe
 				flags |= flags::zero;
 		}
 
+		void set_carry_flags_sub(std::uint8_t lhs, std::uint8_t rhs, std::uint8_t carry, std::uint8_t& flags)
+		{
+			if (rhs + carry > lhs)
+				flags |= flags::carry;
+
+			if (((rhs & 0x0f) + carry) > (lhs & 0x0f))
+				flags |= flags::half_carry;
+		}
+
+		void set_carry_flags_add(std::uint16_t lhs, std::uint16_t rhs, std::uint8_t& flags)
+		{
+			if (lhs + rhs & 0x10000)
+				flags |= flags::carry;
+
+			if ((lhs & 0x00ff) + (rhs & 0x00ff) & 0x100)
+				flags |= flags::half_carry;
+		}
+
 		void compare(std::uint8_t lhs, std::uint8_t rhs, std::uint8_t& flags)
 		{
 			flags = flags::subtraction;
 
 			if (lhs - rhs)
-			{
-				if (rhs > lhs)
-					flags |= flags::carry;
-
-				if ((rhs & 0x0f) > (lhs & 0x0f))
-					flags |= flags::half_carry;
-			}
+				set_carry_flags_sub(lhs, rhs, 0, flags);
 			else
-			{
 				flags |= flags::zero;
-			}
 		}
 
 		void left_rotate(std::uint8_t& value, std::uint8_t& flags)
@@ -321,18 +340,14 @@ namespace naive_gbe
 		{
 			flags = flags::subtraction;
 
-			if (rhs + carry > lhs)
-				flags |= flags::carry;
-
-			if (((rhs & 0x0f) + carry) > (lhs & 0x0f))
-				flags |= flags::half_carry;
+			set_carry_flags_sub(lhs, rhs, carry, flags);
 
 			lhs -= rhs + carry;
 
 			set_zero_flag(lhs, flags);
 		}
 
-		void right_rotate_u8(std::uint8_t& value, std::uint8_t& flags)
+		void right_rotate(std::uint8_t& value, std::uint8_t& flags)
 		{
 			flags = 0;
 
@@ -344,7 +359,7 @@ namespace naive_gbe
 			set_zero_flag(value, flags);
 		}
 
-		void right_rotate_carry_u8(std::uint8_t& value, std::uint8_t& flags)
+		void right_rotate_carry(std::uint8_t& value, std::uint8_t& flags)
 		{
 			std::uint8_t bit7 = (flags & flags::carry) << 3;
 
@@ -382,8 +397,52 @@ namespace naive_gbe
 			set_zero_flag(value, flags);
 		}
 
-		// OPERATION TABLES
-		// ~~~~~~~~~~~~~~~~
+		void set_daa_table()
+		{
+			daas_.assign(0x800, daa{ 0, false });
+
+			struct daa_map
+			{
+				uint16_t n, h, c;
+				std::uint8_t from_high, to_high;
+				std::uint8_t from_low, to_low;
+				daa op;
+			};
+
+			std::vector<daa_map> daa_map_tbl =
+			{
+				daa_map{ 0, 0, 0, 0x0, 0x9, 0x0, 0x9, daa{ 0x00, 0 } },
+				daa_map{ 0, 0, 0, 0x0, 0x8, 0xa, 0xf, daa{ 0x06, 0 } },
+				daa_map{ 0, 0, 1, 0x0, 0x9, 0x0, 0x3, daa{ 0x06, 0 } },
+				daa_map{ 0, 0, 0, 0xa, 0xf, 0x0, 0x9, daa{ 0x60, 1 } },
+				daa_map{ 0, 0, 0, 0x9, 0xf, 0xa, 0xf, daa{ 0x66, 1 } },
+				daa_map{ 0, 0, 1, 0xa, 0xf, 0x0, 0x3, daa{ 0x66, 1 } },
+				daa_map{ 0, 1, 0, 0x0, 0x2, 0x0, 0x9, daa{ 0x60, 1 } },
+				daa_map{ 0, 1, 0, 0x0, 0x2, 0xa, 0xf, daa{ 0x66, 1 } },
+				daa_map{ 0, 1, 1, 0x0, 0x3, 0x0, 0x3, daa{ 0x66, 1 } },
+				daa_map{ 1, 0, 0, 0x0, 0x9, 0x0, 0x9, daa{ 0x00, 0 } },
+				daa_map{ 1, 0, 1, 0x0, 0x8, 0x6, 0xf, daa{ 0xfa, 0 } },
+				daa_map{ 1, 1, 0, 0x7, 0xf, 0x0, 0x9, daa{ 0xa0, 1 } },
+				daa_map{ 1, 1, 1, 0x6, 0xf, 0x6, 0x9, daa{ 0x9a, 1 } },
+			};
+
+			for (auto const& dm : daa_map_tbl)
+			{
+				std::uint16_t flags = dm.n << 10 | dm.h << 9 | dm.c << 8;
+
+				for (std::uint8_t high = dm.from_high; high <= dm.to_high; ++high)
+				{
+					for (std::uint8_t low = dm.from_low; low <= dm.to_low; ++low)
+					{
+						std::uint16_t key = flags | (high << 4) | low;
+						assert(key < daas_.size());
+
+						daas_[key] = dm.op;
+					}
+				}
+			}
+		}
+
 		void set_operation_table()
 		{
 			auto& ops = ops_;
@@ -396,6 +455,7 @@ namespace naive_gbe
 			ops[0x04] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::B), get_ref(r8::F)) };
 			ops[0x05] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::B), get_ref(r8::F)) };
 			ops[0x06] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, get_ref(r8::B)) };
+			ops[0x07] = operation{ 1,  4, std::bind(&lr35902::op_rlca, this, get_ref(r8::A), get_ref(r8::F)) };
 			ops[0x08] = operation{ 3, 20, std::bind(&lr35902::op_ld_a16_sp, this) };
 			ops[0x09] = operation{ 1,  8, std::bind(&lr35902::op_add_hl_r16, this, r16::BC, get_ref(r8::F)) };
 			ops[0x0a] = operation{ 1,  8, std::bind(&lr35902::op_ld_r8_bc, this, get_ref(r8::A)) };
@@ -403,6 +463,7 @@ namespace naive_gbe
 			ops[0x0c] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::C), get_ref(r8::F)) };
 			ops[0x0d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::C), get_ref(r8::F)) };
 			ops[0x0e] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, get_ref(r8::C)) };
+			ops[0x0f] = operation{ 1,  4, std::bind(&lr35902::op_rrca, this, get_ref(r8::A), get_ref(r8::F)) };
 
 			ops[0x10] = operation{ 2,  4, std::bind(&lr35902::op_stop, this) };
 			ops[0x11] = operation{ 3, 12, std::bind(&lr35902::op_ld_r16, this, r16::DE) };
@@ -411,6 +472,7 @@ namespace naive_gbe
 			ops[0x14] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::D), get_ref(r8::F)) };
 			ops[0x15] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::D), get_ref(r8::F)) };
 			ops[0x16] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, get_ref(r8::D)) };
+			ops[0x17] = operation{ 1,  4, std::bind(&lr35902::op_rla, this, get_ref(r8::A), get_ref(r8::F)) };
 			ops[0x18] = operation{ 2,  8, std::bind(&lr35902::op_jr, this) };
 			ops[0x19] = operation{ 1,  8, std::bind(&lr35902::op_add_hl_r16, this, r16::DE, get_ref(r8::F)) };
 			ops[0x1a] = operation{ 1,  8, std::bind(&lr35902::op_ld_r8_de, this, get_ref(r8::A)) };
@@ -418,6 +480,7 @@ namespace naive_gbe
 			ops[0x1c] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::E), get_ref(r8::F)) };
 			ops[0x1d] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::E), get_ref(r8::F)) };
 			ops[0x1e] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, get_ref(r8::E)) };
+			ops[0x1f] = operation{ 1,  4, std::bind(&lr35902::op_rra, this, get_ref(r8::A), get_ref(r8::F)) };
 
 			ops[0x20] = operation{ 2,  8, std::bind(&lr35902::op_jr_cond, this, get_ref(r8::F), flags::zero, false) };
 			ops[0x21] = operation{ 3, 12, std::bind(&lr35902::op_ld_r16, this, r16::HL) };
@@ -426,6 +489,7 @@ namespace naive_gbe
 			ops[0x24] = operation{ 1,  4, std::bind(&lr35902::op_inc_r8, this, get_ref(r8::H), get_ref(r8::F)) };
 			ops[0x25] = operation{ 1,  4, std::bind(&lr35902::op_dec_r8, this, get_ref(r8::H), get_ref(r8::F)) };
 			ops[0x26] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8, this, get_ref(r8::H)) };
+			ops[0x27] = operation{ 1,  4, std::bind(&lr35902::op_daa, this, get_ref(r8::A), get_ref(r8::F)) };
 			ops[0x28] = operation{ 2,  8, std::bind(&lr35902::op_jr_cond, this, get_ref(r8::F), flags::zero, true) };
 			ops[0x29] = operation{ 1,  8, std::bind(&lr35902::op_add_hl_r16, this, r16::HL, get_ref(r8::F)) };
 			ops[0x2a] = operation{ 1,  8, std::bind(&lr35902::op_ldi_r8, this, get_ref(r8::A)) };
@@ -622,12 +686,15 @@ namespace naive_gbe
 			ops[0xde] = operation{ 2,  8, std::bind(&lr35902::op_sbc_d8, this, get_ref(r8::A), get_ref(r8::F)) };
 			ops[0xdf] = operation{ 1, 16, std::bind(&lr35902::op_rst, this, 0x0018) };
 
+			ops[0xe0] = operation{ 2, 12, std::bind(&lr35902::op_ldh_r8_a8, this, get_ref(r8::A)) };
 			ops[0xe1] = operation{ 1, 12, std::bind(&lr35902::op_pop, this, get_ref(r8::H), get_ref(r8::L)) };
+			ops[0xe2] = operation{ 2,  8, std::bind(&lr35902::op_ld_c_r8, this, get_ref(r8::C), get_ref(r8::A)) };
 			ops[0xe3] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
 			ops[0xe4] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
 			ops[0xe5] = operation{ 1, 16, std::bind(&lr35902::op_push, this, get_ref(r8::H), get_ref(r8::L)) };
 			ops[0xe6] = operation{ 1,  4, std::bind(&lr35902::op_and_d8, this, get_ref(r8::A), get_ref(r8::F)) };
 			ops[0xe7] = operation{ 1, 16, std::bind(&lr35902::op_rst, this, 0x0020) };
+			ops[0xe8] = operation{ 2, 16, std::bind(&lr35902::op_add_sp_u8, this, get_ref(r8::F)) };
 			ops[0xe9] = operation{ 1,  4, std::bind(&lr35902::op_jp_hl, this) };
 			ops[0xea] = operation{ 3, 16, std::bind(&lr35902::op_ld_a16_r8, this, get_ref(r8::A)) };
 			ops[0xeb] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
@@ -636,12 +703,15 @@ namespace naive_gbe
 			ops[0xee] = operation{ 2,  8, std::bind(&lr35902::op_xor_d8, this, get_ref(r8::A), get_ref(r8::F)) };
 			ops[0xef] = operation{ 1, 16, std::bind(&lr35902::op_rst, this, 0x0028) };
 
+			ops[0xf0] = operation{ 2, 12, std::bind(&lr35902::op_ldh_a8_r8, this, get_ref(r8::A)) };
 			ops[0xf1] = operation{ 1, 12, std::bind(&lr35902::op_pop, this, get_ref(r8::A), get_ref(r8::F)) };
-			ops[0xf4] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
+			ops[0xf2] = operation{ 2,  8, std::bind(&lr35902::op_ld_r8_c, this, get_ref(r8::A), get_ref(r8::C)) };
 			ops[0xf3] = operation{ 1,  4, std::bind(&lr35902::op_di, this) };
+			ops[0xf4] = operation{ 1,  4, std::bind(&lr35902::op_undefined, this) };
 			ops[0xf5] = operation{ 1, 16, std::bind(&lr35902::op_push, this, get_ref(r8::A), get_ref(r8::F)) };
 			ops[0xf6] = operation{ 2,  8, std::bind(&lr35902::op_or_d8, this, get_ref(r8::A), get_ref(r8::F)) };
 			ops[0xf7] = operation{ 1, 16, std::bind(&lr35902::op_rst, this, 0x0030) };
+			ops[0xf8] = operation{ 2, 12, std::bind(&lr35902::op_ldhl_sp, this) };
 			ops[0xf9] = operation{ 1,  4, std::bind(&lr35902::op_ld_sp_hl, this) };
 			ops[0xfa] = operation{ 3, 16, std::bind(&lr35902::op_ld_r8_a16, this, get_ref(r8::A)) };
 			ops[0xfb] = operation{ 1,  4, std::bind(&lr35902::op_ei, this) };
@@ -984,6 +1054,56 @@ namespace naive_gbe
 			ime_ = 1;
 		}
 
+		// DAA
+		// 1 4
+		// Z - 0 C
+		void op_daa(std::uint8_t& lhs, std::uint8_t& flags)
+		{
+			std::uint16_t key = (flags & 0x70) << 4 | lhs;
+			daa& op = daas_[key];
+
+			lhs += op.value_;
+
+			flags &= flags::subtraction;
+
+			if (op.carry_)
+				flags |= flags::carry;
+
+			set_zero_flag(lhs, flags);
+		}
+
+		// RLA
+		// 1 4
+		// 0 0 0 C
+		void op_rla(std::uint8_t& lhs, std::uint8_t& flags)
+		{
+			left_rotate_carry(lhs, flags);
+		}
+
+		// RLCA
+		// 1 4
+		// 0 0 0 C
+		void op_rlca(std::uint8_t& lhs, std::uint8_t& flags)
+		{
+			left_rotate(lhs, flags);
+		}
+
+		// RRA
+		// 1 4
+		// 0 0 0 C
+		void op_rra(std::uint8_t& lhs, std::uint8_t& flags)
+		{
+			right_rotate_carry(lhs, flags);
+		}
+
+		// RRCA
+		// 1 4
+		// 0 0 0 C
+		void op_rrca(std::uint8_t& lhs, std::uint8_t& flags)
+		{
+			right_rotate(lhs, flags);
+		}
+
 		// POP r16
 		// 1 12
 		// - - - -
@@ -1147,6 +1267,18 @@ namespace naive_gbe
 			flags = (flags & flags::zero) | (~(flags & flags::carry) & flags::carry);
 		}
 
+		// ADD SP, u8
+		// 2 16
+		// 0 0 H C
+		void op_add_sp_u8(std::uint8_t& flags)
+		{
+			std::uint16_t lhs = get_register(r16::SP);
+			std::uint16_t rhs = fetch_u8();
+
+			set_carry_flags_add(lhs, rhs, flags);
+			set_register(r16::SP, lhs + rhs);
+		}
+
 		// ADD A, d8
 		// 2 8
 		// Z 0 H C
@@ -1181,12 +1313,7 @@ namespace naive_gbe
 
 			flags &= flags::zero;
 
-			if (lhs + rhs & 0x10000)
-				flags |= flags::carry;
-
-			if ((lhs & 0x00ff) + (rhs & 0x00ff) & 0x100)
-				flags |= flags::half_carry;
-
+			set_carry_flags_add(lhs, rhs, flags);
 			set_register(r16::HL, lhs + rhs);
 		}
 
@@ -1465,6 +1592,38 @@ namespace naive_gbe
 			set_register(r8::A, mmu_[get_register(r16::BC)]);
 		}
 
+		// LD (C), A
+		// 2 8
+		// - - - -
+		void op_ld_c_r8(std::uint8_t lhs, std::uint8_t rhs)
+		{
+			mmu_[0xff00 + lhs] = rhs;
+		}
+
+		// LD A, (C)
+		// 2 8
+		// - - - -
+		void op_ld_r8_c(std::uint8_t& lhs, std::uint8_t rhs)
+		{
+			lhs = mmu_[0xff00 + rhs];
+		}
+
+		// LDH (a8), A
+		// 2 12
+		// - - - -
+		void op_ldh_a8_r8(std::uint8_t rhs)
+		{
+			mmu_[0xff00 + fetch_u8()] = rhs;
+		}
+
+		// LDH A, (a8)
+		// 2 12
+		// - - - -
+		void op_ldh_r8_a8(std::uint8_t& lhs)
+		{
+			lhs = mmu_[0xff00 + fetch_u8()];
+		}
+
 		// LD A, (DE)
 		// 1 8
 		// - - - -
@@ -1532,6 +1691,14 @@ namespace naive_gbe
 		void op_ld_r16(r16 reg)
 		{
 			set_register(reg, fetch_u16());
+		}
+
+		// LDHL, SP + u8
+		// 2 12
+		// - - - -
+		void op_ldhl_sp()
+		{
+			set_register(r16::HL, get_register(r16::SP) + fetch_i8());
 		}
 
 		// LD (HL), r8
@@ -1615,7 +1782,7 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rrc_r8(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			right_rotate_u8(reg, flags);
+			right_rotate(reg, flags);
 		}
 
 		// CB RRC (HL)
@@ -1623,7 +1790,7 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rrc_hl(std::uint8_t& flags)
 		{
-			right_rotate_u8(get_hl_ref(), flags);
+			right_rotate(get_hl_ref(), flags);
 		}
 
 		// CB RL r8
@@ -1647,7 +1814,7 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rr_r8(std::uint8_t& reg, std::uint8_t& flags)
 		{
-			right_rotate_carry_u8(reg, flags);
+			right_rotate_carry(reg, flags);
 		}
 
 		// CB RR (HL)
@@ -1655,7 +1822,7 @@ namespace naive_gbe
 		// Z 0 0 C
 		void op_rr_hl(std::uint8_t& flags)
 		{
-			right_rotate_carry_u8(get_hl_ref(), flags);
+			right_rotate_carry(get_hl_ref(), flags);
 		}
 
 		// CB SLA r8
@@ -1784,6 +1951,7 @@ namespace naive_gbe
 	private:
 
 		registers		registers_;
+		daas			daas_;
 		std::uint8_t	ime_;
 		std::uint64_t	cycle_;
 		mmu&			mmu_;

@@ -12,10 +12,6 @@
 
 int main(int argc, char** argv)
 {
-	std::uint8_t v = 0x02;
-	std::uint8_t v2 = ~v;
-	return 0;
-
 	if (argc != 2)
 	{
 		std::filesystem::path cmd_path = argv[0];
