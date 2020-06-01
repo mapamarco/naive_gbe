@@ -1420,8 +1420,6 @@ TEST(instructions, op_undefined)
 
 	cpu.reset();
 
-	step_n(cpu, 7, addr, cycle);
-
 	std::vector<result> results =
 	{
 		result{ 0x00, 0x00 },

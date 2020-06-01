@@ -7,6 +7,8 @@
 #pragma once
 
 #include <algorithm>
+#include <sstream>
+#include <iomanip>
 
 #include <naive_gbe/mmu.hpp>
 #include <naive_gbe/cpu.hpp>
@@ -21,7 +23,8 @@ namespace naive_gbe
 	public:
 
 		emulator() :
-			cpu_(mmu_)
+			cpu_(mmu_),
+			disasm_(mmu_)
 		{
 		}
 
@@ -48,17 +51,35 @@ namespace naive_gbe
 			return mmu_;
 		}
 
-		std::string disassembly(std::uint8_t opcode, lr35902::operation const& op, bool extended)
+		std::string cpu_state()
 		{
-			if (opcode == 0xcb)
-				return "";
+			std::ostringstream out;
 
-			std::uint8_t params[4] = { 0, };
+			out << "af=" << std::setw(4) << std::setfill('0')
+				<< std::hex << cpu_.get_register(lr35902::r16::AF) << ' '
+				<< "bc=" << std::setw(4) << std::setfill('0')
+				<< std::hex << cpu_.get_register(lr35902::r16::BC) << ' '
+				<< "de=" << std::setw(4) << std::setfill('0')
+				<< std::hex << cpu_.get_register(lr35902::r16::DE) << ' '
+				<< "hl=" << std::setw(4) << std::setfill('0')
+				<< std::hex << cpu_.get_register(lr35902::r16::HL) << ' '
+				<< "sp=" << std::setw(4) << std::setfill('0')
+				<< std::hex << cpu_.get_register(lr35902::r16::SP) << ' '
+				<< "pc=" << std::setw(4) << std::setfill('0')
+				<< std::hex << cpu_.get_register(lr35902::r16::PC) << ' '
+				<< "z=" << cpu_.get_flag(lr35902::flags::zero) << ' '
+				<< "n=" << cpu_.get_flag(lr35902::flags::subtraction) << ' '
+				<< "h=" << cpu_.get_flag(lr35902::flags::half_carry) << ' '
+				<< "c=" << cpu_.get_flag(lr35902::flags::carry);
+
+			return out.str();
+		}
+
+		std::string disassembly()
+		{
 			std::uint16_t addr = cpu_.get_register(lr35902::r16::PC);
 
-			std::copy(&mmu_[addr], &mmu_[addr + op.size_ - 1], &params[0]);
-
-			return disasm_.disassembly(opcode, extended, op.size_, params);
+			return disasm_.decode(addr);
 		}
 
 	private:

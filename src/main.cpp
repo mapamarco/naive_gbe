@@ -41,7 +41,11 @@ int main(int argc, char** argv)
 	auto& cpu = emulator.get_cpu();
 
 	while (true)
+	{
+		std::cout << emulator.disassembly() << '\n';
 		cpu.step();
+		std::cout << emulator.cpu_state() << '\n';
+	}
 
 	return EXIT_SUCCESS;
 }

@@ -212,12 +212,13 @@ namespace naive_gbe
 		void call_addr(std::uint16_t addr)
 		{
 			std::uint16_t value = get_register(r16::PC);
-			std::uint16_t sp_addr = get_register(r16::SP);
+			std::uint16_t sp = get_register(r16::SP);
 
-			mmu_[--sp_addr] = (value & 0xff00) >> 8;
-			mmu_[--sp_addr] = value & 0x00ff;
+			mmu_[--sp] = (value & 0xff00) >> 8;
+			mmu_[--sp] = value & 0x00ff;
 
-			set_register(r16::SP, sp_addr);
+			set_register(r16::PC, addr);
+			set_register(r16::SP, sp);
 		}
 
 		void logical_and(std::uint8_t& rhs, std::uint8_t lhs, std::uint8_t& flags)
@@ -1133,10 +1134,9 @@ namespace naive_gbe
 		// RST addr
 		// 1 16
 		// - - - -
-		void op_rst(std::uint16_t reset_addr)
+		void op_rst(std::uint16_t addr)
 		{
-			call_addr(reset_addr);
-			set_register(r16::PC, reset_addr);
+			call_addr(addr);
 		}
 
 		// RET
@@ -1172,6 +1172,10 @@ namespace naive_gbe
 				cycle_ += 12;
 				op_ret();
 			}
+			else
+			{
+				set_register(r16::PC, get_register(r16::PC) + 1);
+			}
 		}
 
 		// CALL a16
@@ -1191,6 +1195,10 @@ namespace naive_gbe
 			{
 				cycle_ += 12;
 				call_addr(fetch_u16());
+			}
+			else
+			{
+				set_register(r16::PC, get_register(r16::PC) + 1);
 			}
 		}
 
@@ -1220,6 +1228,10 @@ namespace naive_gbe
 				cycle_ += 4;
 				op_jp();
 			}
+			else
+			{
+				set_register(r16::PC, get_register(r16::PC) + 1);
+			}
 		}
 
 		// JR i8
@@ -1239,6 +1251,10 @@ namespace naive_gbe
 			{
 				cycle_ += 4;
 				op_jr();
+			}
+			else
+			{
+				set_register(r16::PC, get_register(r16::PC) + 1);
 			}
 		}
 

@@ -8,9 +8,12 @@
 
 #include <unordered_map>
 #include <string>
+#include <vector>
+#include <sstream>
 #include <cassert>
+#include <iomanip>
 
-#include <naive_gbe/cpu.hpp>
+#include <naive_gbe/mmu.hpp>
 
 namespace naive_gbe
 {
@@ -18,486 +21,630 @@ namespace naive_gbe
 	{
 	public:
 
-		disassembler()
+		disassembler(mmu& mmu) :
+			mmu_(mmu)
 		{
 			set_operations();
-			set_operations_ex();
+			set_operations_cb();
 		}
 
-		std::string const& disassembly(std::uint8_t opcode, bool extended)
+		void print_u16(std::ostream& out, std::uint16_t value)
 		{
-			operations& ops = extended ? ops_ex_ : ops_;
-
-			return ops[opcode];
+			out << std::setw(4) << std::setfill('0')
+				<< std::hex << static_cast<int>(value) << ' ';
 		}
 
-		std::string disassembly(std::uint8_t opcode, bool extended, std::uint8_t size, std::uint8_t* addr)
+		void print_u8(std::ostream& out, std::uint8_t value)
 		{
-			constexpr std::size_t const BUFSZ = 32;
+			out << std::setw(2) << std::setfill('0')
+				<< std::hex << static_cast<int>(value) << ' ';
+		}
 
-			char buffer[BUFSZ];
-			std::string text;
-			operations& ops = extended ? ops_ex_ : ops_;
-			auto const& decoded = ops[opcode];
+		std::string decode(std::uint16_t addr)
+		{
+			std::ostringstream out;
+			std::uint8_t opcode = mmu_[addr];
+			operation op = ops_[opcode];
 
-			switch (size)
+			print_u16(out, addr);
+			out << ' ';
+
+			if (opcode == 0xcb)
 			{
-			case 1:
-				text = decoded;
-				break;
-			case 2:
-				snprintf(buffer, BUFSZ, decoded.c_str(), *addr);
-				text = buffer;
-				break;
-			case 3:
-				snprintf(buffer, BUFSZ, decoded.c_str(), *reinterpret_cast<std::uint16_t*>(addr));
-				text = buffer;
-				break;
+				opcode = mmu_[addr + 1];
+				op = ops_cb_[opcode];
 			}
 
-			return text;
+			for (std::uint8_t i = 0; i < op.size_; ++i, ++addr)
+				print_u8(out, mmu_[addr]);
+
+			int padding = 4 + (3 - op.size_) * 3;
+			out << std::setw(padding) << std::setfill(' ') << ' ';
+
+			auto it = std::begin(op.tokens_);
+			out << *it << std::setw(6 - it->size()) << std::setfill(' ') << ' ';
+
+			while (++it != std::end(op.tokens_))
+				out << *it << (it + 1 != std::end(op.tokens_) ? ", " : " ");
+
+			return out.str();
 		}
 
 	private:
 
-		using operations = std::unordered_map<std::uint8_t, std::string>;
+		struct operation
+		{
+			using token_list = std::vector<std::string>;
+
+			std::uint8_t	size_ = 1;
+			std::uint8_t	cycles_ = 4;
+			token_list		tokens_ = {};
+		};
+
+		using operations = std::unordered_map<std::uint8_t, operation>;
 
 		void set_operations()
 		{
 			auto& ops = ops_;
 			ops.reserve(0x100);
 
-			for (std::size_t addr = 0; addr < 0x100; ++addr)
-				ops[static_cast<std::uint8_t>(addr)] = "UNDEF";
+			ops[0x00] = operation{ 1,  4, { "nop" } };
+			ops[0x01] = operation{ 3, 12, { "ld", "bc", "d16" } };
+			ops[0x02] = operation{ 1,  8, { "ld", "(bc)", "a" } };
+			ops[0x03] = operation{ 1,  8, { "inc", "bc" } };
+			ops[0x04] = operation{ 1,  4, { "inc", "b" } };
+			ops[0x05] = operation{ 1,  4, { "dec", "b" } };
+			ops[0x06] = operation{ 2,  8, { "ld", "b", "d8" } };
+			ops[0x07] = operation{ 1,  4, { "rlca" } };
+			ops[0x08] = operation{ 3, 20, { "ld", "(a16)", "sp" } };
+			ops[0x09] = operation{ 1,  8, { "add", "hl", "bc" } };
+			ops[0x0a] = operation{ 1,  8, { "ld", "a", "(bc)" } };
+			ops[0x0b] = operation{ 1,  8, { "dec", "bc" } };
+			ops[0x0c] = operation{ 1,  4, { "inc", "c" } };
+			ops[0x0d] = operation{ 1,  4, { "dec", "c" } };
+			ops[0x0e] = operation{ 2,  8, { "ld", "c", "d8" } };
+			ops[0x0f] = operation{ 1,  4, { "rrca" } };
 
-			ops[0x00] = "NOP";
-			ops[0x01] = "LD     BC,    0x%04X";
-			ops[0x02] = "LD   (BC),    A";
-			ops[0x03] = "INC    BC";
-			ops[0x04] = "INC     B";
-			ops[0x05] = "DEC     B";
-			ops[0x06] = "LD      B,    0x%02X";
-			ops[0x0a] = "LD      A,    (BC)";
-			ops[0x0b] = "DEC    BC";
-			ops[0x0c] = "INC     C";
-			ops[0x0d] = "DEC     C";
-			ops[0x0e] = "LD      C,    0x%02X";
+			ops[0x10] = operation{ 2,  4, { "stop" } };
+			ops[0x11] = operation{ 3, 12, { "ld", "de", "d16" } };
+			ops[0x12] = operation{ 1,  8, { "ld", "(de)", "a" } };
+			ops[0x13] = operation{ 1,  8, { "inc", "de" } };
+			ops[0x14] = operation{ 1,  4, { "inc", "d" } };
+			ops[0x15] = operation{ 1,  4, { "dec", "d" } };
+			ops[0x16] = operation{ 2,  8, { "ld", "d", "d8" } };
+			ops[0x17] = operation{ 1,  4, { "rla" } };
+			ops[0x18] = operation{ 2,  8, { "jr", "r8" } };
+			ops[0x19] = operation{ 1,  8, { "add", "hl", "de" } };
+			ops[0x1a] = operation{ 1,  8, { "ld", "a", "(de)" } };
+			ops[0x1b] = operation{ 1,  8, { "dec", "de" } };
+			ops[0x1c] = operation{ 1,  4, { "inc", "e" } };
+			ops[0x1d] = operation{ 1,  4, { "dec", "e" } };
+			ops[0x1e] = operation{ 2,  8, { "ld", "e", "d8" } };
+			ops[0x1f] = operation{ 1,  4, { "rra" } };
 
-			ops[0x10] = "STOP";
-			ops[0x11] = "LD     DE,    0x%04X";
-			ops[0x12] = "LD   (DE),    A";
-			ops[0x13] = "INC    DE";
-			ops[0x14] = "INC     D";
-			ops[0x15] = "DEC     D";
-			ops[0x16] = "LD      D,    0x%02X";
-			ops[0x1a] = "LD      A,    (DE)";
-			ops[0x1b] = "DEC    DE";
-			ops[0x1c] = "INC     E";
-			ops[0x1d] = "DEC     E";
-			ops[0x1e] = "LD      E,    0x%02X";
+			ops[0x20] = operation{ 2,  8, { "jr", "nz", "r8" } };
+			ops[0x21] = operation{ 3, 12, { "ld", "hl", "d16" } };
+			ops[0x22] = operation{ 1,  8, { "ld", "(hl+)", "a" } };
+			ops[0x23] = operation{ 1,  8, { "inc", "hl" } };
+			ops[0x24] = operation{ 1,  4, { "inc", "h" } };
+			ops[0x25] = operation{ 1,  4, { "dec", "h" } };
+			ops[0x26] = operation{ 2,  8, { "ld", "h", "d8" } };
+			ops[0x27] = operation{ 1,  4, { "daa" } };
+			ops[0x28] = operation{ 2,  8, { "jr", "z", "r8" } };
+			ops[0x29] = operation{ 1,  8, { "add", "hl", "hl" } };
+			ops[0x2a] = operation{ 1,  8, { "ld", "a", "(hl+)" } };
+			ops[0x2b] = operation{ 1,  8, { "dec", "hl" } };
+			ops[0x2c] = operation{ 1,  4, { "inc", "l" } };
+			ops[0x2d] = operation{ 1,  4, { "dec", "l" } };
+			ops[0x2e] = operation{ 2,  8, { "ld", "l", "d8" } };
+			ops[0x2f] = operation{ 1,  4, { "cpl" } };
 
-			ops[0x21] = "LD     HL,    0x%04X";
-			ops[0x22] = "LDI  (HL),    A";
-			ops[0x23] = "INC    HL";
-			ops[0x24] = "INC     H";
-			ops[0x25] = "DEC     H";
-			ops[0x26] = "LD      H,    0x%02X";
-			ops[0x2a] = "LDI     A,    (HL)";
-			ops[0x2b] = "DEC    HL";
-			ops[0x2c] = "INC     L";
-			ops[0x2d] = "DEC     L";
-			ops[0x2e] = "LD      L,    0x%02X";
+			ops[0x30] = operation{ 2,  8, { "jr", "nc", "r8" } };
+			ops[0x31] = operation{ 3, 12, { "ld", "sp", "d16" } };
+			ops[0x32] = operation{ 1,  8, { "ld", "(hl-)", "a" } };
+			ops[0x33] = operation{ 1,  8, { "inc", "sp" } };
+			ops[0x34] = operation{ 1, 12, { "inc", "(hl)" } };
+			ops[0x35] = operation{ 1, 12, { "dec", "(hl)" } };
+			ops[0x36] = operation{ 2, 12, { "ld", "(hl)", "d8" } };
+			ops[0x37] = operation{ 1,  4, { "scf" } };
+			ops[0x38] = operation{ 2,  8, { "jr", "c", "r8" } };
+			ops[0x39] = operation{ 1,  8, { "add", "hl", "sp" } };
+			ops[0x3a] = operation{ 1,  8, { "ld", "a", "(hl-)" } };
+			ops[0x3b] = operation{ 1,  8, { "dec", "sp" } };
+			ops[0x3c] = operation{ 1,  4, { "inc", "a" } };
+			ops[0x3d] = operation{ 1,  4, { "dec", "a" } };
+			ops[0x3e] = operation{ 2,  8, { "ld", "a", "d8" } };
+			ops[0x3f] = operation{ 1,  4, { "ccf" } };
 
-			ops[0x31] = "LD     SP,    0x%04X";
-			ops[0x32] = "LDD  (HL),    A";
-			ops[0x33] = "INC    SP";
-			ops[0x34] = "INC  (HL)";
-			ops[0x35] = "DEC  (HL)";
-			ops[0x36] = "LD     HL,    0x%02X";
-			ops[0x3a] = "LDD     A,    (HL)";
-			ops[0x3b] = "DEC    SP";
-			ops[0x3c] = "INC     A";
-			ops[0x3d] = "DEC     A";
-			ops[0x3e] = "LD      A,    0x%02X";
+			ops[0x40] = operation{ 1,  4, { "ld", "b", "b" } };
+			ops[0x41] = operation{ 1,  4, { "ld", "b", "c" } };
+			ops[0x42] = operation{ 1,  4, { "ld", "b", "d" } };
+			ops[0x43] = operation{ 1,  4, { "ld", "b", "e" } };
+			ops[0x44] = operation{ 1,  4, { "ld", "b", "h" } };
+			ops[0x45] = operation{ 1,  4, { "ld", "b", "l" } };
+			ops[0x46] = operation{ 1,  8, { "ld", "b", "(hl)" } };
+			ops[0x47] = operation{ 1,  4, { "ld", "b", "a" } };
+			ops[0x48] = operation{ 1,  4, { "ld", "c", "b" } };
+			ops[0x49] = operation{ 1,  4, { "ld", "c", "c" } };
+			ops[0x4a] = operation{ 1,  4, { "ld", "c", "d" } };
+			ops[0x4b] = operation{ 1,  4, { "ld", "c", "e" } };
+			ops[0x4c] = operation{ 1,  4, { "ld", "c", "h" } };
+			ops[0x4d] = operation{ 1,  4, { "ld", "c", "l" } };
+			ops[0x4e] = operation{ 1,  8, { "ld", "c", "(hl)" } };
+			ops[0x4f] = operation{ 1,  4, { "ld", "c", "a" } };
 
-			ops[0xcb] = "CB";
+			ops[0x50] = operation{ 1,  4, { "ld", "d", "b" } };
+			ops[0x51] = operation{ 1,  4, { "ld", "d", "c" } };
+			ops[0x52] = operation{ 1,  4, { "ld", "d", "d" } };
+			ops[0x53] = operation{ 1,  4, { "ld", "d", "e" } };
+			ops[0x54] = operation{ 1,  4, { "ld", "d", "h" } };
+			ops[0x55] = operation{ 1,  4, { "ld", "d", "l" } };
+			ops[0x56] = operation{ 1,  8, { "ld", "d", "(hl)" } };
+			ops[0x57] = operation{ 1,  4, { "ld", "d", "a" } };
+			ops[0x58] = operation{ 1,  4, { "ld", "e", "b" } };
+			ops[0x59] = operation{ 1,  4, { "ld", "e", "c" } };
+			ops[0x5a] = operation{ 1,  4, { "ld", "e", "d" } };
+			ops[0x5b] = operation{ 1,  4, { "ld", "e", "e" } };
+			ops[0x5c] = operation{ 1,  4, { "ld", "e", "h" } };
+			ops[0x5d] = operation{ 1,  4, { "ld", "e", "l" } };
+			ops[0x5e] = operation{ 1,  8, { "ld", "e", "(hl)" } };
+			ops[0x5f] = operation{ 1,  4, { "ld", "e", "a" } };
 
-			ops[0x40] = "LD      B,    B";
-			ops[0x41] = "LD      B,    C";
-			ops[0x42] = "LD      B,    D";
-			ops[0x43] = "LD      B,    E";
-			ops[0x44] = "LD      B,    H";
-			ops[0x45] = "LD      B,    L";
-			ops[0x46] = "LD      B,    (HL)";
-			ops[0x47] = "LD      B,    A";
-			ops[0x48] = "LD      C,    B";
-			ops[0x49] = "LD      C,    C";
-			ops[0x4a] = "LD      C,    D";
-			ops[0x4b] = "LD      C,    E";
-			ops[0x4c] = "LD      C,    H";
-			ops[0x4d] = "LD      C,    L";
-			ops[0x4e] = "LD      C,    (HL)";
-			ops[0x4f] = "LD      C,    A";
+			ops[0x60] = operation{ 1,  4, { "ld", "h", "b" } };
+			ops[0x61] = operation{ 1,  4, { "ld", "h", "c" } };
+			ops[0x62] = operation{ 1,  4, { "ld", "h", "d" } };
+			ops[0x63] = operation{ 1,  4, { "ld", "h", "e" } };
+			ops[0x64] = operation{ 1,  4, { "ld", "h", "h" } };
+			ops[0x65] = operation{ 1,  4, { "ld", "h", "l" } };
+			ops[0x66] = operation{ 1,  8, { "ld", "h", "(hl)" } };
+			ops[0x67] = operation{ 1,  4, { "ld", "h", "a" } };
+			ops[0x68] = operation{ 1,  4, { "ld", "l", "b" } };
+			ops[0x69] = operation{ 1,  4, { "ld", "l", "c" } };
+			ops[0x6a] = operation{ 1,  4, { "ld", "l", "d" } };
+			ops[0x6b] = operation{ 1,  4, { "ld", "l", "e" } };
+			ops[0x6c] = operation{ 1,  4, { "ld", "l", "h" } };
+			ops[0x6d] = operation{ 1,  4, { "ld", "l", "l" } };
+			ops[0x6e] = operation{ 1,  8, { "ld", "l", "(hl)" } };
+			ops[0x6f] = operation{ 1,  4, { "ld l,a" } };
 
-			ops[0x50] = "LD      D,    B";
-			ops[0x51] = "LD      D,    C";
-			ops[0x52] = "LD      D,    D";
-			ops[0x53] = "LD      D,    E";
-			ops[0x54] = "LD      D,    H";
-			ops[0x55] = "LD      D,    L";
-			ops[0x56] = "LD      D,    (HL)";
-			ops[0x57] = "LD      D,    A";
-			ops[0x58] = "LD      E,    B";
-			ops[0x59] = "LD      E,    C";
-			ops[0x5a] = "LD      E,    D";
-			ops[0x5b] = "LD      E,    E";
-			ops[0x5c] = "LD      E,    H";
-			ops[0x5d] = "LD      E,    L";
-			ops[0x5e] = "LD      E,    (HL)";
-			ops[0x5f] = "LD      E,    A";
+			ops[0x70] = operation{ 1,  8, { "ld", "(hl)", "b" } };
+			ops[0x71] = operation{ 1,  8, { "ld", "(hl)", "c" } };
+			ops[0x72] = operation{ 1,  8, { "ld", "(hl)", "d" } };
+			ops[0x73] = operation{ 1,  8, { "ld", "(hl)", "e" } };
+			ops[0x74] = operation{ 1,  8, { "ld", "(hl)", "h" } };
+			ops[0x75] = operation{ 1,  8, { "ld", "(hl)", "l" } };
+			ops[0x76] = operation{ 1,  4, { "halt" } };
+			ops[0x77] = operation{ 1,  8, { "ld", "(hl)", "a" } };
+			ops[0x78] = operation{ 1,  4, { "ld", "a", "b" } };
+			ops[0x79] = operation{ 1,  4, { "ld", "a", "c" } };
+			ops[0x7a] = operation{ 1,  4, { "ld", "a", "d" } };
+			ops[0x7b] = operation{ 1,  4, { "ld", "a", "e" } };
+			ops[0x7c] = operation{ 1,  4, { "ld", "a", "h" } };
+			ops[0x7d] = operation{ 1,  4, { "ld", "a", "l" } };
+			ops[0x7e] = operation{ 1,  8, { "ld", "a", "(hl)" } };
+			ops[0x7f] = operation{ 1,  4, { "ld", "a", "a" } };
 
-			ops[0x60] = "LD      H,    B";
-			ops[0x61] = "LD      H,    C";
-			ops[0x62] = "LD      H,    D";
-			ops[0x63] = "LD      H,    E";
-			ops[0x64] = "LD      H,    H";
-			ops[0x65] = "LD      H,    L";
-			ops[0x66] = "LD      H,    (HL)";
-			ops[0x67] = "LD      H,    A";
-			ops[0x68] = "LD      L,    B";
-			ops[0x69] = "LD      L,    C";
-			ops[0x6a] = "LD      L,    D";
-			ops[0x6b] = "LD      L,    E";
-			ops[0x6c] = "LD      L,    H";
-			ops[0x6d] = "LD      L,    L";
-			ops[0x6e] = "LD      L,    (HL)";
-			ops[0x6f] = "LD      L,    A";
+			ops[0x80] = operation{ 1,  4, { "add", "a", "b" } };
+			ops[0x81] = operation{ 1,  4, { "add", "a", "c" } };
+			ops[0x82] = operation{ 1,  4, { "add", "a", "d" } };
+			ops[0x83] = operation{ 1,  4, { "add", "a", "e" } };
+			ops[0x84] = operation{ 1,  4, { "add", "a", "h" } };
+			ops[0x85] = operation{ 1,  4, { "add", "a", "l" } };
+			ops[0x86] = operation{ 1,  8, { "add", "a", "(hl)" } };
+			ops[0x87] = operation{ 1,  4, { "add", "a", "a" } };
+			ops[0x88] = operation{ 1,  4, { "adc", "a", "b" } };
+			ops[0x89] = operation{ 1,  4, { "adc", "a", "c" } };
+			ops[0x8a] = operation{ 1,  4, { "adc", "a", "d" } };
+			ops[0x8b] = operation{ 1,  4, { "adc", "a", "e" } };
+			ops[0x8c] = operation{ 1,  4, { "adc", "a", "h" } };
+			ops[0x8d] = operation{ 1,  4, { "adc", "a", "l" } };
+			ops[0x8e] = operation{ 1,  8, { "adc", "a", "(hl)" } };
+			ops[0x8f] = operation{ 1,  4, { "adc", "a", "a" } };
 
-			ops[0x70] = "LD      (HL),    B";
-			ops[0x71] = "LD      (HL),    C";
-			ops[0x72] = "LD      (HL),    D";
-			ops[0x73] = "LD      (HL),    E";
-			ops[0x74] = "LD      (HL),    H";
-			ops[0x75] = "LD      (HL),    L";
-			ops[0x76] = "HALT";
-			ops[0x77] = "LD      (HL),    A";
-			ops[0x78] = "LD      A,       B";
-			ops[0x79] = "LD      A,       C";
-			ops[0x7a] = "LD      A,       D";
-			ops[0x7b] = "LD      A,       E";
-			ops[0x7c] = "LD      A,       H";
-			ops[0x7d] = "LD      A,       L";
-			ops[0x7e] = "LD      A,       (HL)";
-			ops[0x7f] = "LD      A,       A";
+			ops[0x90] = operation{ 1,  4, { "sub", "b" } };
+			ops[0x91] = operation{ 1,  4, { "sub", "c" } };
+			ops[0x92] = operation{ 1,  4, { "sub", "d" } };
+			ops[0x93] = operation{ 1,  4, { "sub", "e" } };
+			ops[0x94] = operation{ 1,  4, { "sub", "h" } };
+			ops[0x95] = operation{ 1,  4, { "sub", "l" } };
+			ops[0x96] = operation{ 1,  8, { "sub", "(hl)" } };
+			ops[0x97] = operation{ 1,  4, { "sub", "a" } };
+			ops[0x98] = operation{ 1,  4, { "sbc", "a", "b" } };
+			ops[0x99] = operation{ 1,  4, { "sbc", "a", "c" } };
+			ops[0x9a] = operation{ 1,  4, { "sbc", "a", "d" } };
+			ops[0x9b] = operation{ 1,  4, { "sbc", "a", "e" } };
+			ops[0x9c] = operation{ 1,  4, { "sbc", "a", "h" } };
+			ops[0x9d] = operation{ 1,  4, { "sbc", "a", "l" } };
+			ops[0x9e] = operation{ 1,  8, { "sbc", "a", "(hl)" } };
+			ops[0x9f] = operation{ 1,  4, { "sbc", "a", "a" } };
 
+			ops[0xa0] = operation{ 1,  4, { "and", "b" } };
+			ops[0xa1] = operation{ 1,  4, { "and", "c" } };
+			ops[0xa2] = operation{ 1,  4, { "and", "d" } };
+			ops[0xa3] = operation{ 1,  4, { "and", "e" } };
+			ops[0xa4] = operation{ 1,  4, { "and", "h" } };
+			ops[0xa5] = operation{ 1,  4, { "and", "l" } };
+			ops[0xa6] = operation{ 1,  8, { "and", "(hl)" } };
+			ops[0xa7] = operation{ 1,  4, { "and", "a" } };
+			ops[0xa8] = operation{ 1,  4, { "xor", "b" } };
+			ops[0xa9] = operation{ 1,  4, { "xor", "c" } };
+			ops[0xaa] = operation{ 1,  4, { "xor", "d" } };
+			ops[0xab] = operation{ 1,  4, { "xor", "e" } };
+			ops[0xac] = operation{ 1,  4, { "xor", "h" } };
+			ops[0xad] = operation{ 1,  4, { "xor", "l" } };
+			ops[0xae] = operation{ 1,  8, { "xor", "(hl)" } };
+			ops[0xaf] = operation{ 1,  4, { "xor", "a" } };
 
-			ops[0xa8] = "XOR     B";
-			ops[0xa9] = "XOR     C";
-			ops[0xaa] = "XOR     D";
-			ops[0xab] = "XOR     E";
-			ops[0xac] = "XOR     H";
-			ops[0xad] = "XOR     L";
-			ops[0xae] = "XOR     (HL)";
-			ops[0xaf] = "XOR     A";
+			ops[0xb0] = operation{ 1,  4, { "or", "b" } };
+			ops[0xb1] = operation{ 1,  4, { "or", "c" } };
+			ops[0xb2] = operation{ 1,  4, { "or", "d" } };
+			ops[0xb3] = operation{ 1,  4, { "or", "e" } };
+			ops[0xb4] = operation{ 1,  4, { "or", "h" } };
+			ops[0xb5] = operation{ 1,  4, { "or", "l" } };
+			ops[0xb6] = operation{ 1,  8, { "or", "(hl)" } };
+			ops[0xb7] = operation{ 1,  4, { "or", "a" } };
+			ops[0xb8] = operation{ 1,  4, { "cp", "b" } };
+			ops[0xb9] = operation{ 1,  4, { "cp", "c" } };
+			ops[0xba] = operation{ 1,  4, { "cp", "d" } };
+			ops[0xbb] = operation{ 1,  4, { "cp", "e" } };
+			ops[0xbc] = operation{ 1,  4, { "cp", "h" } };
+			ops[0xbd] = operation{ 1,  4, { "cp", "l" } };
+			ops[0xbe] = operation{ 1,  8, { "cp", "(hl)" } };
+			ops[0xbf] = operation{ 1,  4, { "cp", "a" } };
 
-			ops[0xd3] = "UNDEF";
-			ops[0xdb] = "UNDEF";
-			ops[0xdd] = "UNDEF";
+			ops[0xc0] = operation{ 1,  8, { "ret", "nz" } };
+			ops[0xc1] = operation{ 1, 12, { "pop", "bc" } };
+			ops[0xc2] = operation{ 3, 12, { "jp", "nz", "a16" } };
+			ops[0xc3] = operation{ 3, 16, { "jp", "a16" } };
+			ops[0xc4] = operation{ 3, 12, { "call", "nz", "a16" } };
+			ops[0xc5] = operation{ 1, 16, { "push", "bc" } };
+			ops[0xc6] = operation{ 2,  8, { "add", "a", "d8" } };
+			ops[0xc7] = operation{ 1, 16, { "rst", "00h" } };
+			ops[0xc8] = operation{ 1,  8, { "ret", "z" } };
+			ops[0xc9] = operation{ 1, 16, { "ret" } };
+			ops[0xca] = operation{ 3, 12, { "jp", "z", "a16" } };
+			ops[0xcb] = operation{ 0,  0, { "prefix", "cb" } };
+			ops[0xcc] = operation{ 3, 12, { "call", "z", "a16" } };
+			ops[0xcd] = operation{ 3, 24, { "call", "a16" } };
+			ops[0xce] = operation{ 2,  8, { "adc", "a", "d8" } };
+			ops[0xcf] = operation{ 1, 16, { "rst", "08h" } };
 
-			ops[0xe3] = "UNDEF";
-			ops[0xe4] = "UNDEF";
-			ops[0xeb] = "UNDEF";
-			ops[0xec] = "UNDEF";
-			ops[0xed] = "UNDEF";
+			ops[0xd0] = operation{ 1,  8, { "ret", "nc" } };
+			ops[0xd1] = operation{ 1, 12, { "pop", "de" } };
+			ops[0xd2] = operation{ 3, 12, { "jp", "nc", "a16" } };
+			ops[0xd3] = operation{ 1,  4, { "inv" } };
+			ops[0xd4] = operation{ 3, 12, { "call", "nc", "a16" } };
+			ops[0xd5] = operation{ 1, 16, { "push", "de" } };
+			ops[0xd6] = operation{ 2,  8, { "sub", "d8" } };
+			ops[0xd7] = operation{ 1, 16, { "rst", "10h" } };
+			ops[0xd8] = operation{ 1,  8, { "ret", "c" } };
+			ops[0xd9] = operation{ 1, 16, { "reti" } };
+			ops[0xda] = operation{ 3, 12, { "jp", "c", "a16" } };
+			ops[0xdb] = operation{ 1,  4, { "inv" } };
+			ops[0xdc] = operation{ 3, 12, { "call", "c", "a16" } };
+			ops[0xdd] = operation{ 1,  4, { "inv" } };
+			ops[0xde] = operation{ 2,  8, { "sbc", "a", "d8" } };
+			ops[0xdf] = operation{ 1, 16, { "rst", "18h" } };
 
-			ops[0xf4] = "UNDEF";
-			ops[0xfc] = "UNDEF";
-			ops[0xfd] = "UNDEF";
+			ops[0xe0] = operation{ 2, 12, { "ldh", "(a8)", "a" } };
+			ops[0xe1] = operation{ 1, 12, { "pop", "hl" } };
+			ops[0xe2] = operation{ 2,  8, { "ld", "(c)", "a" } };
+			ops[0xe3] = operation{ 1,  4, { "inv" } };
+			ops[0xe4] = operation{ 1,  4, { "inv" } };
+			ops[0xe5] = operation{ 1, 16, { "push", "hl" } };
+			ops[0xe6] = operation{ 1,  4, { "and", "d8" } };
+			ops[0xe7] = operation{ 1, 16, { "rst", "20h" } };
+			ops[0xe8] = operation{ 2, 16, { "add", "sp", "r8" } };
+			ops[0xe9] = operation{ 1,  4, { "jp", "(hl)" } };
+			ops[0xea] = operation{ 3, 16, { "ld", "(a16)", "a" } };
+			ops[0xeb] = operation{ 1,  4, { "inv" } };
+			ops[0xec] = operation{ 1,  4, { "inv" } };
+			ops[0xed] = operation{ 1,  4, { "inv" } };
+			ops[0xee] = operation{ 2,  8, { "xor", "d8" } };
+			ops[0xef] = operation{ 1, 16, { "rst", "28h" } };
+#
+			ops[0xf0] = operation{ 2, 12, { "ldh", "a", "(a8)" } };
+			ops[0xf1] = operation{ 1, 12, { "pop", "af" } };
+			ops[0xf2] = operation{ 2,  8, { "ld", "a", "(c)" } };
+			ops[0xf3] = operation{ 1,  4, { "di" } };
+			ops[0xf4] = operation{ 1,  4, { "inv" } };
+			ops[0xf5] = operation{ 1, 16, { "push", "af" } };
+			ops[0xf6] = operation{ 2,  8, { "or", "d8" } };
+			ops[0xf7] = operation{ 1, 16, { "rst", "30h" } };
+			ops[0xf8] = operation{ 2, 12, { "ld", "hl", "sp+r8" } };
+			ops[0xf9] = operation{ 1,  4, { "ld", "sp", "hl" } };
+			ops[0xfa] = operation{ 3, 16, { "ld", "a", "(a16)" } };
+			ops[0xfb] = operation{ 1,  4, { "ei" } };
+			ops[0xfc] = operation{ 1,  4, { "inv" } };
+			ops[0xfd] = operation{ 1,  4, { "inv" } };
+			ops[0xfe] = operation{ 2,  8, { "cp", "d8" } };
+			ops[0xff] = operation{ 1, 16, { "rst", "38h" } };
 
 			assert(ops.size() == 0x100);
 		}
 
-		void set_operations_ex()
+		void set_operations_cb()
 		{
-			auto& ops = ops_ex_;
+			auto& ops = ops_cb_;
 			ops.reserve(0x100);
 
-			ops[0x00] = "CB RLC  B";
-			ops[0x01] = "CB RLC  C";
-			ops[0x02] = "CB RLC  D";
-			ops[0x03] = "CB RLC  E";
-			ops[0x04] = "CB RLC  H";
-			ops[0x05] = "CB RLC  L";
-			ops[0x06] = "CB RLC  (HL)";
-			ops[0x07] = "CB RLC  A";
-			ops[0x08] = "CB RRC  B";
-			ops[0x09] = "CB RRC  C";
-			ops[0x0a] = "CB RRC  D";
-			ops[0x0b] = "CB RRC  E";
-			ops[0x0c] = "CB RRC  H";
-			ops[0x0d] = "CB RRC  L";
-			ops[0x0e] = "CB RRC  (HL)";
-			ops[0x0f] = "CB RRC  A";
-								
-			ops[0x10] = "CB RL   B";
-			ops[0x11] = "CB RL   C";
-			ops[0x12] = "CB RL   D";
-			ops[0x13] = "CB RL   E";
-			ops[0x14] = "CB RL   H";
-			ops[0x15] = "CB RL   L";
-			ops[0x16] = "CB RL   (HL)";
-			ops[0x17] = "CB RL   A";
-			ops[0x18] = "CB RR   B";
-			ops[0x19] = "CB RR   C";
-			ops[0x1a] = "CB RR   D";
-			ops[0x1b] = "CB RR   E";
-			ops[0x1c] = "CB RR   H";
-			ops[0x1d] = "CB RR   L";
-			ops[0x1e] = "CB RR   (HL)";
-			ops[0x1f] = "CB RR   A";
+			ops[0x00] = operation{ 2,  8, { "rlc", "b" } };
+			ops[0x01] = operation{ 2,  8, { "rlc", "c" } };
+			ops[0x02] = operation{ 2,  8, { "rlc", "d" } };
+			ops[0x03] = operation{ 2,  8, { "rlc", "e" } };
+			ops[0x04] = operation{ 2,  8, { "rlc", "h" } };
+			ops[0x05] = operation{ 2,  8, { "rlc", "l" } };
+			ops[0x06] = operation{ 2, 16, { "rlc", "(hl)" } };
+			ops[0x07] = operation{ 2,  8, { "rlc", "a" } };
+			ops[0x08] = operation{ 2,  8, { "rrc", "b" } };
+			ops[0x09] = operation{ 2,  8, { "rrc", "c" } };
+			ops[0x0a] = operation{ 2,  8, { "rrc", "d" } };
+			ops[0x0b] = operation{ 2,  8, { "rrc", "e" } };
+			ops[0x0c] = operation{ 2,  8, { "rrc", "h" } };
+			ops[0x0d] = operation{ 2,  8, { "rrc", "l" } };
+			ops[0x0e] = operation{ 2, 16, { "rrc", "(hl)" } };
+			ops[0x0f] = operation{ 2,  8, { "rrc", "a" } };
 
-			ops[0x20] = "CB SLA  B";
-			ops[0x21] = "CB SLA  C";
-			ops[0x22] = "CB SLA  D";
-			ops[0x23] = "CB SLA  E";
-			ops[0x24] = "CB SLA  H";
-			ops[0x25] = "CB SLA  L";
-			ops[0x26] = "CB SLA  (HL)";
-			ops[0x27] = "CB SLA  A";
-			ops[0x28] = "CB SRA  B";
-			ops[0x29] = "CB SRA  C";
-			ops[0x2a] = "CB SRA  D";
-			ops[0x2b] = "CB SRA  E";
-			ops[0x2c] = "CB SRA  H";
-			ops[0x2d] = "CB SRA  L";
-			ops[0x2e] = "CB SRA  (HL)";
-			ops[0x2f] = "CB SRA  A";
+			ops[0x10] = operation{ 2,  8, { "rl", "b" } };
+			ops[0x11] = operation{ 2,  8, { "rl", "c" } };
+			ops[0x12] = operation{ 2,  8, { "rl", "d" } };
+			ops[0x13] = operation{ 2,  8, { "rl", "e" } };
+			ops[0x14] = operation{ 2,  8, { "rl", "h" } };
+			ops[0x15] = operation{ 2,  8, { "rl", "l" } };
+			ops[0x16] = operation{ 2, 16, { "rl", "(hl)" } };
+			ops[0x17] = operation{ 2,  8, { "rl", "a" } };
+			ops[0x18] = operation{ 2,  8, { "rr", "b" } };
+			ops[0x19] = operation{ 2,  8, { "rr", "c" } };
+			ops[0x1a] = operation{ 2,  8, { "rr", "d" } };
+			ops[0x1b] = operation{ 2,  8, { "rr", "e" } };
+			ops[0x1c] = operation{ 2,  8, { "rr", "h" } };
+			ops[0x1d] = operation{ 2,  8, { "rr", "l" } };
+			ops[0x1e] = operation{ 2, 16, { "rr", "(hl)" } };
+			ops[0x1f] = operation{ 2,  8, { "rr", "a" } };
 
-			ops[0x30] = "CB SWAP B";
-			ops[0x31] = "CB SWAP C";
-			ops[0x32] = "CB SWAP D";
-			ops[0x33] = "CB SWAP E";
-			ops[0x34] = "CB SWAP H";
-			ops[0x35] = "CB SWAP L";
-			ops[0x36] = "CB SWAP (HL)";
-			ops[0x37] = "CB SWAP A";
-			ops[0x38] = "CB SRL  B";
-			ops[0x39] = "CB SRL  C";
-			ops[0x3a] = "CB SRL  D";
-			ops[0x3b] = "CB SRL  E";
-			ops[0x3c] = "CB SRL  H";
-			ops[0x3d] = "CB SRL  L";
-			ops[0x3e] = "CB SRL  (HL)";
-			ops[0x3f] = "CB SRL  A";
+			ops[0x20] = operation{ 2,  8, { "sla", "b" } };
+			ops[0x21] = operation{ 2,  8, { "sla", "c" } };
+			ops[0x22] = operation{ 2,  8, { "sla", "d" } };
+			ops[0x23] = operation{ 2,  8, { "sla", "e" } };
+			ops[0x24] = operation{ 2,  8, { "sla", "h" } };
+			ops[0x25] = operation{ 2,  8, { "sla", "l" } };
+			ops[0x26] = operation{ 2, 16, { "sla", "(hl)" } };
+			ops[0x27] = operation{ 2,  8, { "sla", "a" } };
+			ops[0x28] = operation{ 2,  8, { "sra", "b" } };
+			ops[0x29] = operation{ 2,  8, { "sra", "c" } };
+			ops[0x2a] = operation{ 2,  8, { "sra", "d" } };
+			ops[0x2b] = operation{ 2,  8, { "sra", "e" } };
+			ops[0x2c] = operation{ 2,  8, { "sra", "h" } };
+			ops[0x2d] = operation{ 2,  8, { "sra", "l" } };
+			ops[0x2e] = operation{ 2, 16, { "sra", "(hl)" } };
+			ops[0x2f] = operation{ 2,  8, { "sra", "a" } };
 
-			ops[0x40] = "CB BIT  0,    B";
-			ops[0x41] = "CB BIT  0,    C";
-			ops[0x42] = "CB BIT  0,    D";
-			ops[0x43] = "CB BIT  0,    E";
-			ops[0x44] = "CB BIT  0,    H";
-			ops[0x45] = "CB BIT  0,    L";
-			ops[0x46] = "CB BIT  0,    (HL)";
-			ops[0x47] = "CB BIT  0,    A";
-			ops[0x48] = "CB BIT  1,    B";
-			ops[0x49] = "CB BIT  1,    C";
-			ops[0x4a] = "CB BIT  1,    D";
-			ops[0x4b] = "CB BIT  1,    E";
-			ops[0x4c] = "CB BIT  1,    H";
-			ops[0x4d] = "CB BIT  1,    L";
-			ops[0x4e] = "CB BIT  1,    (HL)";
-			ops[0x4f] = "CB BIT  1,    A";
+			ops[0x30] = operation{ 2,  8, { "swap", "b" } };
+			ops[0x31] = operation{ 2,  8, { "swap", "c" } };
+			ops[0x32] = operation{ 2,  8, { "swap", "d" } };
+			ops[0x33] = operation{ 2,  8, { "swap", "e" } };
+			ops[0x34] = operation{ 2,  8, { "swap", "h" } };
+			ops[0x35] = operation{ 2,  8, { "swap", "l" } };
+			ops[0x36] = operation{ 2, 16, { "swap", "(hl)" } };
+			ops[0x37] = operation{ 2,  8, { "swap", "a" } };
+			ops[0x38] = operation{ 2,  8, { "srl", "b" } };
+			ops[0x39] = operation{ 2,  8, { "srl", "c" } };
+			ops[0x3a] = operation{ 2,  8, { "srl", "d" } };
+			ops[0x3b] = operation{ 2,  8, { "srl", "e" } };
+			ops[0x3c] = operation{ 2,  8, { "srl", "h" } };
+			ops[0x3d] = operation{ 2,  8, { "srl", "l" } };
+			ops[0x3e] = operation{ 2, 16, { "srl", "(hl)" } };
+			ops[0x3f] = operation{ 2,  8, { "srl", "a" } };
 
-			ops[0x50] = "CB BIT  2,    B";
-			ops[0x51] = "CB BIT  2,    C";
-			ops[0x52] = "CB BIT  2,    D";
-			ops[0x53] = "CB BIT  2,    E";
-			ops[0x54] = "CB BIT  2,    H";
-			ops[0x55] = "CB BIT  2,    L";
-			ops[0x56] = "CB BIT  2,    (HL)";
-			ops[0x57] = "CB BIT  2,    A";
-			ops[0x58] = "CB BIT  3,    B";
-			ops[0x59] = "CB BIT  3,    C";
-			ops[0x5a] = "CB BIT  3,    D";
-			ops[0x5b] = "CB BIT  3,    E";
-			ops[0x5c] = "CB BIT  3,    H";
-			ops[0x5d] = "CB BIT  3,    L";
-			ops[0x5e] = "CB BIT  3,    (HL)";
-			ops[0x5f] = "CB BIT  3,    A";
+			ops[0x40] = operation{ 2,  8, { "bit", "0", "b" } };
+			ops[0x41] = operation{ 2,  8, { "bit", "0", "c" } };
+			ops[0x42] = operation{ 2,  8, { "bit", "0", "d" } };
+			ops[0x43] = operation{ 2,  8, { "bit", "0", "e" } };
+			ops[0x44] = operation{ 2,  8, { "bit", "0", "h" } };
+			ops[0x45] = operation{ 2,  8, { "bit", "0", "l" } };
+			ops[0x46] = operation{ 2, 16, { "bit", "0", "(hl)" } };
+			ops[0x47] = operation{ 2,  8, { "bit", "0", "a" } };
+			ops[0x48] = operation{ 2,  8, { "bit", "1", "b" } };
+			ops[0x49] = operation{ 2,  8, { "bit", "1", "c" } };
+			ops[0x4a] = operation{ 2,  8, { "bit", "1", "d" } };
+			ops[0x4b] = operation{ 2,  8, { "bit", "1", "e" } };
+			ops[0x4c] = operation{ 2,  8, { "bit", "1", "h" } };
+			ops[0x4d] = operation{ 2,  8, { "bit", "1", "l" } };
+			ops[0x4e] = operation{ 2, 16, { "bit", "1", "(hl)" } };
+			ops[0x4f] = operation{ 2,  8, { "bit", "1", "a" } };
 
-			ops[0x60] = "CB BIT  4,    B";
-			ops[0x61] = "CB BIT  4,    C";
-			ops[0x62] = "CB BIT  4,    D";
-			ops[0x63] = "CB BIT  4,    E";
-			ops[0x64] = "CB BIT  4,    H";
-			ops[0x65] = "CB BIT  4,    L";
-			ops[0x66] = "CB BIT  4,    (HL)";
-			ops[0x67] = "CB BIT  4,    A";
-			ops[0x68] = "CB BIT  5,    B";
-			ops[0x69] = "CB BIT  5,    C";
-			ops[0x6a] = "CB BIT  5,    D";
-			ops[0x6b] = "CB BIT  5,    E";
-			ops[0x6c] = "CB BIT  5,    H";
-			ops[0x6d] = "CB BIT  5,    L";
-			ops[0x6e] = "CB BIT  5,    (HL)";
-			ops[0x6f] = "CB BIT  5,    A";
+			ops[0x50] = operation{ 2,  8, { "bit", "2", "b" } };
+			ops[0x51] = operation{ 2,  8, { "bit", "2", "c" } };
+			ops[0x52] = operation{ 2,  8, { "bit", "2", "d" } };
+			ops[0x53] = operation{ 2,  8, { "bit", "2", "e" } };
+			ops[0x54] = operation{ 2,  8, { "bit", "2", "h" } };
+			ops[0x55] = operation{ 2,  8, { "bit", "2", "l" } };
+			ops[0x56] = operation{ 2, 16, { "bit", "2", "(hl)" } };
+			ops[0x57] = operation{ 2,  8, { "bit", "2", "a" } };
+			ops[0x58] = operation{ 2,  8, { "bit", "3", "b" } };
+			ops[0x59] = operation{ 2,  8, { "bit", "3", "c" } };
+			ops[0x5a] = operation{ 2,  8, { "bit", "3", "d" } };
+			ops[0x5b] = operation{ 2,  8, { "bit", "3", "e" } };
+			ops[0x5c] = operation{ 2,  8, { "bit", "3", "h" } };
+			ops[0x5d] = operation{ 2,  8, { "bit", "3", "l" } };
+			ops[0x5e] = operation{ 2, 16, { "bit", "3", "(hl)" } };
+			ops[0x5f] = operation{ 2,  8, { "bit", "3", "a" } };
 
-			ops[0x70] = "CB BIT  6,    B";
-			ops[0x71] = "CB BIT  6,    C";
-			ops[0x72] = "CB BIT  6,    D";
-			ops[0x73] = "CB BIT  6,    E";
-			ops[0x74] = "CB BIT  6,    H";
-			ops[0x75] = "CB BIT  6,    L";
-			ops[0x76] = "CB BIT  6,    (HL)";
-			ops[0x77] = "CB BIT  6,    A";
-			ops[0x78] = "CB BIT  7,    B";
-			ops[0x79] = "CB BIT  7,    C";
-			ops[0x7a] = "CB BIT  7,    D";
-			ops[0x7b] = "CB BIT  7,    E";
-			ops[0x7c] = "CB BIT  7,    H";
-			ops[0x7d] = "CB BIT  7,    L";
-			ops[0x7e] = "CB BIT  7,    (HL)";
-			ops[0x7f] = "CB BIT  7,    A";
+			ops[0x60] = operation{ 2,  8, { "bit", "4", "b" } };
+			ops[0x61] = operation{ 2,  8, { "bit", "4", "c" } };
+			ops[0x62] = operation{ 2,  8, { "bit", "4", "d" } };
+			ops[0x63] = operation{ 2,  8, { "bit", "4", "e" } };
+			ops[0x64] = operation{ 2,  8, { "bit", "4", "h" } };
+			ops[0x65] = operation{ 2,  8, { "bit", "4", "l" } };
+			ops[0x66] = operation{ 2, 16, { "bit", "4", "(hl)" } };
+			ops[0x67] = operation{ 2,  8, { "bit", "4", "a" } };
+			ops[0x68] = operation{ 2,  8, { "bit", "5", "b" } };
+			ops[0x69] = operation{ 2,  8, { "bit", "5", "c" } };
+			ops[0x6a] = operation{ 2,  8, { "bit", "5", "d" } };
+			ops[0x6b] = operation{ 2,  8, { "bit", "5", "e" } };
+			ops[0x6c] = operation{ 2,  8, { "bit", "5", "h" } };
+			ops[0x6d] = operation{ 2,  8, { "bit", "5", "l" } };
+			ops[0x6e] = operation{ 2, 16, { "bit", "5", "(hl)" } };
+			ops[0x6f] = operation{ 2,  8, { "bit", "5", "a" } };
 
-			ops[0x80] = "CB RES  0,    B";
-			ops[0x81] = "CB RES  0,    C";
-			ops[0x82] = "CB RES  0,    D";
-			ops[0x83] = "CB RES  0,    E";
-			ops[0x84] = "CB RES  0,    H";
-			ops[0x85] = "CB RES  0,    L";
-			ops[0x86] = "CB RES  0,    (HL)";
-			ops[0x87] = "CB RES  0,    A";
-			ops[0x88] = "CB RES  1,    B";
-			ops[0x89] = "CB RES  1,    C";
-			ops[0x8a] = "CB RES  1,    D";
-			ops[0x8b] = "CB RES  1,    E";
-			ops[0x8c] = "CB RES  1,    H";
-			ops[0x8d] = "CB RES  1,    L";
-			ops[0x8e] = "CB RES  1,    (HL)";
-			ops[0x8f] = "CB RES  1,    A";
+			ops[0x70] = operation{ 2,  8, { "bit", "6", "b" } };
+			ops[0x71] = operation{ 2,  8, { "bit", "6", "c" } };
+			ops[0x72] = operation{ 2,  8, { "bit", "6", "d" } };
+			ops[0x73] = operation{ 2,  8, { "bit", "6", "e" } };
+			ops[0x74] = operation{ 2,  8, { "bit", "6", "h" } };
+			ops[0x75] = operation{ 2,  8, { "bit", "6", "l" } };
+			ops[0x76] = operation{ 2, 16, { "bit", "6", "(hl)" } };
+			ops[0x77] = operation{ 2,  8, { "bit", "6", "a" } };
+			ops[0x78] = operation{ 2,  8, { "bit", "7", "b" } };
+			ops[0x79] = operation{ 2,  8, { "bit", "7", "c" } };
+			ops[0x7a] = operation{ 2,  8, { "bit", "7", "d" } };
+			ops[0x7b] = operation{ 2,  8, { "bit", "7", "e" } };
+			ops[0x7c] = operation{ 2,  8, { "bit", "7", "h" } };
+			ops[0x7d] = operation{ 2,  8, { "bit", "7", "l" } };
+			ops[0x7e] = operation{ 2, 16, { "bit", "7", "(hl)" } };
+			ops[0x7f] = operation{ 2,  8, { "bit", "7", "a" } };
 
-			ops[0x90] = "CB RES  2,    B";
-			ops[0x91] = "CB RES  2,    C";
-			ops[0x92] = "CB RES  2,    D";
-			ops[0x93] = "CB RES  2,    E";
-			ops[0x94] = "CB RES  2,    H";
-			ops[0x95] = "CB RES  2,    L";
-			ops[0x96] = "CB RES  2,    (HL)";
-			ops[0x97] = "CB RES  2,    A";
-			ops[0x98] = "CB RES  3,    B";
-			ops[0x99] = "CB RES  3,    C";
-			ops[0x9a] = "CB RES  3,    D";
-			ops[0x9b] = "CB RES  3,    E";
-			ops[0x9c] = "CB RES  3,    H";
-			ops[0x9d] = "CB RES  3,    L";
-			ops[0x9e] = "CB RES  3,    (HL)";
-			ops[0x9f] = "CB RES  3,    A";
+			ops[0x80] = operation{ 2,  8, { "res", "0", "b" } };
+			ops[0x81] = operation{ 2,  8, { "res", "0", "c" } };
+			ops[0x82] = operation{ 2,  8, { "res", "0", "d" } };
+			ops[0x83] = operation{ 2,  8, { "res", "0", "e" } };
+			ops[0x84] = operation{ 2,  8, { "res", "0", "h" } };
+			ops[0x85] = operation{ 2,  8, { "res", "0", "l" } };
+			ops[0x86] = operation{ 2, 16, { "res", "0", "(hl)" } };
+			ops[0x87] = operation{ 2,  8, { "res", "0", "a" } };
+			ops[0x88] = operation{ 2,  8, { "res", "1", "b" } };
+			ops[0x89] = operation{ 2,  8, { "res", "1", "c" } };
+			ops[0x8a] = operation{ 2,  8, { "res", "1", "d" } };
+			ops[0x8b] = operation{ 2,  8, { "res", "1", "e" } };
+			ops[0x8c] = operation{ 2,  8, { "res", "1", "h" } };
+			ops[0x8d] = operation{ 2,  8, { "res", "1", "l" } };
+			ops[0x8e] = operation{ 2, 16, { "res", "1", "(hl)" } };
+			ops[0x8f] = operation{ 2,  8, { "res", "1", "a" } };
 
-			ops[0xa0] = "CB RES  4,    B";
-			ops[0xa1] = "CB RES  4,    C";
-			ops[0xa2] = "CB RES  4,    D";
-			ops[0xa3] = "CB RES  4,    E";
-			ops[0xa4] = "CB RES  4,    H";
-			ops[0xa5] = "CB RES  4,    L";
-			ops[0xa6] = "CB RES  4,    (HL)";
-			ops[0xa7] = "CB RES  4,    A";
-			ops[0xa8] = "CB RES  5,    B";
-			ops[0xa9] = "CB RES  5,    C";
-			ops[0xaa] = "CB RES  5,    D";
-			ops[0xab] = "CB RES  5,    E";
-			ops[0xac] = "CB RES  5,    H";
-			ops[0xad] = "CB RES  5,    L";
-			ops[0xae] = "CB RES  5,    (HL)";
-			ops[0xaf] = "CB RES  5,    A";
+			ops[0x90] = operation{ 2,  8, { "res", "2", "b" } };
+			ops[0x91] = operation{ 2,  8, { "res", "2", "c" } };
+			ops[0x92] = operation{ 2,  8, { "res", "2", "d" } };
+			ops[0x93] = operation{ 2,  8, { "res", "2", "e" } };
+			ops[0x94] = operation{ 2,  8, { "res", "2", "h" } };
+			ops[0x95] = operation{ 2,  8, { "res", "2", "l" } };
+			ops[0x96] = operation{ 2, 16, { "res", "2", "(hl)" } };
+			ops[0x97] = operation{ 2,  8, { "res", "2", "a" } };
+			ops[0x98] = operation{ 2,  8, { "res", "3", "b" } };
+			ops[0x99] = operation{ 2,  8, { "res", "3", "c" } };
+			ops[0x9a] = operation{ 2,  8, { "res", "3", "d" } };
+			ops[0x9b] = operation{ 2,  8, { "res", "3", "e" } };
+			ops[0x9c] = operation{ 2,  8, { "res", "3", "h" } };
+			ops[0x9d] = operation{ 2,  8, { "res", "3", "l" } };
+			ops[0x9e] = operation{ 2, 16, { "res", "3", "(hl)" } };
+			ops[0x9f] = operation{ 2,  8, { "res", "3", "a" } };
 
-			ops[0xb0] = "CB RES  6,    B";
-			ops[0xb1] = "CB RES  6,    C";
-			ops[0xb2] = "CB RES  6,    D";
-			ops[0xb3] = "CB RES  6,    E";
-			ops[0xb4] = "CB RES  6,    H";
-			ops[0xb5] = "CB RES  6,    L";
-			ops[0xb6] = "CB RES  6,    (HL)";
-			ops[0xb7] = "CB RES  6,    A";
-			ops[0xb8] = "CB RES  7,    B";
-			ops[0xb9] = "CB RES  7,    C";
-			ops[0xba] = "CB RES  7,    D";
-			ops[0xbb] = "CB RES  7,    E";
-			ops[0xbc] = "CB RES  7,    H";
-			ops[0xbd] = "CB RES  7,    L";
-			ops[0xbe] = "CB RES  7,    (HL)";
-			ops[0xbf] = "CB RES  7,    A";
+			ops[0xa0] = operation{ 2,  8, { "res", "4", "b" } };
+			ops[0xa1] = operation{ 2,  8, { "res", "4", "c" } };
+			ops[0xa2] = operation{ 2,  8, { "res", "4", "d" } };
+			ops[0xa3] = operation{ 2,  8, { "res", "4", "e" } };
+			ops[0xa4] = operation{ 2,  8, { "res", "4", "h" } };
+			ops[0xa5] = operation{ 2,  8, { "res", "4", "l" } };
+			ops[0xa6] = operation{ 2, 16, { "res", "4", "(hl)" } };
+			ops[0xa7] = operation{ 2,  8, { "res", "4", "a" } };
+			ops[0xa8] = operation{ 2,  8, { "res", "5", "b" } };
+			ops[0xa9] = operation{ 2,  8, { "res", "5", "c" } };
+			ops[0xaa] = operation{ 2,  8, { "res", "5", "d" } };
+			ops[0xab] = operation{ 2,  8, { "res", "5", "e" } };
+			ops[0xac] = operation{ 2,  8, { "res", "5", "h" } };
+			ops[0xad] = operation{ 2,  8, { "res", "5", "l" } };
+			ops[0xae] = operation{ 2, 16, { "res", "5", "(hl)" } };
+			ops[0xaf] = operation{ 2,  8, { "res", "5", "a" } };
 
-			ops[0xc0] = "CB SET  0,    B";
-			ops[0xc1] = "CB SET  0,    C";
-			ops[0xc2] = "CB SET  0,    D";
-			ops[0xc3] = "CB SET  0,    E";
-			ops[0xc4] = "CB SET  0,    H";
-			ops[0xc5] = "CB SET  0,    L";
-			ops[0xc6] = "CB SET  0,    (HL)";
-			ops[0xc7] = "CB SET  0,    A";
-			ops[0xc8] = "CB SET  1,    B";
-			ops[0xc9] = "CB SET  1,    C";
-			ops[0xca] = "CB SET  1,    D";
-			ops[0xcb] = "CB SET  1,    E";
-			ops[0xcc] = "CB SET  1,    H";
-			ops[0xcd] = "CB SET  1,    L";
-			ops[0xce] = "CB SET  1,    (HL)";
-			ops[0xcf] = "CB SET  1,    A";
+			ops[0xb0] = operation{ 2,  8, { "res", "6", "b" } };
+			ops[0xb1] = operation{ 2,  8, { "res", "6", "c" } };
+			ops[0xb2] = operation{ 2,  8, { "res", "6", "d" } };
+			ops[0xb3] = operation{ 2,  8, { "res", "6", "e" } };
+			ops[0xb4] = operation{ 2,  8, { "res", "6", "h" } };
+			ops[0xb5] = operation{ 2,  8, { "res", "6", "l" } };
+			ops[0xb6] = operation{ 2, 16, { "res", "6", "(hl)" } };
+			ops[0xb7] = operation{ 2,  8, { "res", "6", "a" } };
+			ops[0xb8] = operation{ 2,  8, { "res", "7", "b" } };
+			ops[0xb9] = operation{ 2,  8, { "res", "7", "c" } };
+			ops[0xba] = operation{ 2,  8, { "res", "7", "d" } };
+			ops[0xbb] = operation{ 2,  8, { "res", "7", "e" } };
+			ops[0xbc] = operation{ 2,  8, { "res", "7", "h" } };
+			ops[0xbd] = operation{ 2,  8, { "res", "7", "l" } };
+			ops[0xbe] = operation{ 2, 16, { "res", "7", "(hl)" } };
+			ops[0xbf] = operation{ 2,  8, { "res", "7", "a" } };
 
-			ops[0xd0] = "CB SET  2,    B";
-			ops[0xd1] = "CB SET  2,    C";
-			ops[0xd2] = "CB SET  2,    D";
-			ops[0xd3] = "CB SET  2,    E";
-			ops[0xd4] = "CB SET  2,    H";
-			ops[0xd5] = "CB SET  2,    L";
-			ops[0xd6] = "CB SET  2,    (HL)";
-			ops[0xd7] = "CB SET  2,    A";
-			ops[0xd8] = "CB SET  3,    B";
-			ops[0xd9] = "CB SET  3,    C";
-			ops[0xda] = "CB SET  3,    D";
-			ops[0xdb] = "CB SET  3,    E";
-			ops[0xdc] = "CB SET  3,    H";
-			ops[0xdd] = "CB SET  3,    L";
-			ops[0xde] = "CB SET  3,    (HL)";
-			ops[0xdf] = "CB SET  3,    A";
+			ops[0xc0] = operation{ 2,  8, { "set", "0", "b" } };
+			ops[0xc1] = operation{ 2,  8, { "set", "0", "c" } };
+			ops[0xc2] = operation{ 2,  8, { "set", "0", "d" } };
+			ops[0xc3] = operation{ 2,  8, { "set", "0", "e" } };
+			ops[0xc4] = operation{ 2,  8, { "set", "0", "h" } };
+			ops[0xc5] = operation{ 2,  8, { "set", "0", "l" } };
+			ops[0xc6] = operation{ 2, 16, { "set", "0", "(hl)" } };
+			ops[0xc7] = operation{ 2,  8, { "set", "0", "a" } };
+			ops[0xc8] = operation{ 2,  8, { "set", "1", "b" } };
+			ops[0xc9] = operation{ 2,  8, { "set", "1", "c" } };
+			ops[0xca] = operation{ 2,  8, { "set", "1", "d" } };
+			ops[0xcb] = operation{ 2,  8, { "set", "1", "e" } };
+			ops[0xcc] = operation{ 2,  8, { "set", "1", "h" } };
+			ops[0xcd] = operation{ 2,  8, { "set", "1", "l" } };
+			ops[0xce] = operation{ 2, 16, { "set", "1", "(hl)" } };
+			ops[0xcf] = operation{ 2,  8, { "set", "1", "a" } };
 
-			ops[0xe0] = "CB SET  4,    B";
-			ops[0xe1] = "CB SET  4,    C";
-			ops[0xe2] = "CB SET  4,    D";
-			ops[0xe3] = "CB SET  4,    E";
-			ops[0xe4] = "CB SET  4,    H";
-			ops[0xe5] = "CB SET  4,    L";
-			ops[0xe6] = "CB SET  4,    (HL)";
-			ops[0xe7] = "CB SET  4,    A";
-			ops[0xe8] = "CB SET  5,    B";
-			ops[0xe9] = "CB SET  5,    C";
-			ops[0xea] = "CB SET  5,    D";
-			ops[0xeb] = "CB SET  5,    E";
-			ops[0xec] = "CB SET  5,    H";
-			ops[0xed] = "CB SET  5,    L";
-			ops[0xee] = "CB SET  5,    (HL)";
-			ops[0xef] = "CB SET  5,    A";
+			ops[0xd0] = operation{ 2,  8, { "set", "2", "b" } };
+			ops[0xd1] = operation{ 2,  8, { "set", "2", "c" } };
+			ops[0xd2] = operation{ 2,  8, { "set", "2", "d" } };
+			ops[0xd3] = operation{ 2,  8, { "set", "2", "e" } };
+			ops[0xd4] = operation{ 2,  8, { "set", "2", "h" } };
+			ops[0xd5] = operation{ 2,  8, { "set", "2", "l" } };
+			ops[0xd6] = operation{ 2, 16, { "set", "2", "(hl)" } };
+			ops[0xd7] = operation{ 2,  8, { "set", "2", "a" } };
+			ops[0xd8] = operation{ 2,  8, { "set", "3", "b" } };
+			ops[0xd9] = operation{ 2,  8, { "set", "3", "c" } };
+			ops[0xda] = operation{ 2,  8, { "set", "3", "d" } };
+			ops[0xdb] = operation{ 2,  8, { "set", "3", "e" } };
+			ops[0xdc] = operation{ 2,  8, { "set", "3", "h" } };
+			ops[0xdd] = operation{ 2,  8, { "set", "3", "l" } };
+			ops[0xde] = operation{ 2, 16, { "set", "3", "(hl)" } };
+			ops[0xdf] = operation{ 2,  8, { "set", "3", "a" } };
 
-			ops[0xf0] = "CB SET  6,    B";
-			ops[0xf1] = "CB SET  6,    C";
-			ops[0xf2] = "CB SET  6,    D";
-			ops[0xf3] = "CB SET  6,    E";
-			ops[0xf4] = "CB SET  6,    H";
-			ops[0xf5] = "CB SET  6,    L";
-			ops[0xf6] = "CB SET  6,    (HL)";
-			ops[0xf7] = "CB SET  6,    A";
-			ops[0xf8] = "CB SET  7,    B";
-			ops[0xf9] = "CB SET  7,    C";
-			ops[0xfa] = "CB SET  7,    D";
-			ops[0xfb] = "CB SET  7,    E";
-			ops[0xfc] = "CB SET  7,    H";
-			ops[0xfd] = "CB SET  7,    L";
-			ops[0xfe] = "CB SET  7,    (HL)";
-			ops[0xff] = "CB SET  7,    A";
+			ops[0xe0] = operation{ 2,  8, { "set", "4", "b" } };
+			ops[0xe1] = operation{ 2,  8, { "set", "4", "c" } };
+			ops[0xe2] = operation{ 2,  8, { "set", "4", "d" } };
+			ops[0xe3] = operation{ 2,  8, { "set", "4", "e" } };
+			ops[0xe4] = operation{ 2,  8, { "set", "4", "h" } };
+			ops[0xe5] = operation{ 2,  8, { "set", "4", "l" } };
+			ops[0xe6] = operation{ 2, 16, { "set", "4", "(hl)" } };
+			ops[0xe7] = operation{ 2,  8, { "set", "4", "a" } };
+			ops[0xe8] = operation{ 2,  8, { "set", "5", "b" } };
+			ops[0xe9] = operation{ 2,  8, { "set", "5", "c" } };
+			ops[0xea] = operation{ 2,  8, { "set", "5", "d" } };
+			ops[0xeb] = operation{ 2,  8, { "set", "5", "e" } };
+			ops[0xec] = operation{ 2,  8, { "set", "5", "h" } };
+			ops[0xed] = operation{ 2,  8, { "set", "5", "l" } };
+			ops[0xee] = operation{ 2, 16, { "set", "5", "(hl)" } };
+			ops[0xef] = operation{ 2,  8, { "set", "5", "a" } };
+
+			ops[0xf0] = operation{ 2,  8, { "set", "6", "b" } };
+			ops[0xf1] = operation{ 2,  8, { "set", "6", "c" } };
+			ops[0xf2] = operation{ 2,  8, { "set", "6", "d" } };
+			ops[0xf3] = operation{ 2,  8, { "set", "6", "e" } };
+			ops[0xf4] = operation{ 2,  8, { "set", "6", "h" } };
+			ops[0xf5] = operation{ 2,  8, { "set", "6", "l" } };
+			ops[0xf6] = operation{ 2, 16, { "set", "6", "(hl)" } };
+			ops[0xf7] = operation{ 2,  8, { "set", "6", "a" } };
+			ops[0xf8] = operation{ 2,  8, { "set", "7", "b" } };
+			ops[0xf9] = operation{ 2,  8, { "set", "7", "c" } };
+			ops[0xfa] = operation{ 2,  8, { "set", "7", "d" } };
+			ops[0xfb] = operation{ 2,  8, { "set", "7", "e" } };
+			ops[0xfc] = operation{ 2,  8, { "set", "7", "h" } };
+			ops[0xfd] = operation{ 2,  8, { "set", "7", "l" } };
+			ops[0xfe] = operation{ 2, 16, { "set", "7", "(hl)" } };
+			ops[0xff] = operation{ 2,  8, { "set", "7", "a" } };
 
 			assert(ops.size() == 0x100);
 		}
 
+		mmu&		mmu_;
 		operations	ops_;
-		operations	ops_ex_;
+		operations	ops_cb_;
 	};
 }
