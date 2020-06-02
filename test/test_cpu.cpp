@@ -4,13 +4,19 @@
 #include <naive_gbe/mmu.hpp>
 using namespace naive_gbe;
 
-class cartridge_buf :
-	public cartridge
+class mmu_buf :
+	public mmu
 {
 public:
-	cartridge_buf(buffer&& data)
+	void set_data(std::initializer_list<std::uint8_t> buffer)
 	{
-		data_ = data;
+		memory_.assign(0x10000, 0);
+
+		auto it1 = std::begin(buffer);
+		auto it2 = std::begin(memory_);
+
+		while (it1 != std::end(buffer) && it2 != std::end(memory_))
+			*it2++ = *it1++;
 	}
 };
 
@@ -51,7 +57,7 @@ void step_n(lr35902& cpu, std::size_t n, std::uint16_t& addr, std::uint64_t& cyc
 
 TEST(registers, reset)
 {
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
 	cpu.reset();
@@ -76,12 +82,12 @@ TEST(instructions, op_ret)
 	// 1 16
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x31, 0xfe, 0xff,	// LD SP, 0xfffe
 		0xcf,				// RST 0x08
 		0x00,				// NOP
@@ -89,7 +95,7 @@ TEST(instructions, op_ret)
 		0x00,				// NOP
 		0x00,				// NOP
 		0xc9,				// RET
-	}));
+	});
 
 	cpu.reset();
 
@@ -114,7 +120,7 @@ TEST(instructions, op_rst)
 	// 1 16
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
@@ -139,10 +145,10 @@ TEST(instructions, op_rst)
 
 	for (auto const& res : rst_ops)
 	{
-		mmu.set_cartridge(cartridge_buf({
+		mmu.set_data({
 			0x31, 0xfe, 0xff,	// LD SP, 0xfffe
 			res.opcode,			// RST 0x00
-		}));
+		});
 
 		cpu.reset();
 
@@ -162,12 +168,12 @@ TEST(instructions, op_push)
 	// 1 16
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x31, 0xfe, 0xff,	// LD SP, 0xfffe
 		0x01, 0x22, 0x11,	// LD BC, 0x1122
 		0x11, 0x44, 0x33,	// LD DE, 0x3344
@@ -178,7 +184,7 @@ TEST(instructions, op_push)
 		0xd5,				// PUSH DE
 		0xe5,				// PUSH HL
 		0xf5,				// PUSH AF
-	}));
+	});
 
 	cpu.reset();
 
@@ -223,12 +229,12 @@ TEST(instructions, op_pop)
 	// 1 12
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x31, 0xfe, 0xff,	// LD SP, 0xfffe
 		0x01, 0x22, 0x11,	// LD BC, 0x1122
 		0x11, 0x44, 0x33,	// LD DE, 0x3344
@@ -248,7 +254,7 @@ TEST(instructions, op_pop)
 		0xe1,				// POP HL
 		0xd1,				// POP DE
 		0xc1,				// POP BC
-	}));
+	});
 
 	cpu.reset();
 
@@ -287,12 +293,12 @@ TEST(instructions, op_adc_hl)
 	// 2 8
 	// Z 0 H C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0xc6,			// LD A, 0xc6
 		0x77,				// LD (HL), A
@@ -300,7 +306,7 @@ TEST(instructions, op_adc_hl)
 		0x8e,				// ADC A, (HL)
 		0x3e, 0x0f,			// LD A, 0x0f
 		0x8e,				// ADC A, (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -327,12 +333,12 @@ TEST(instructions, op_adc_r8)
 	// 1 4
 	// Z 0 H C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0xc6,			// LD B, 0xc6
 		0x0e, 0x0f,			// LD C, 0x0f
 		0x16, 0x01,			// LD D, 0x01
@@ -347,7 +353,7 @@ TEST(instructions, op_adc_r8)
 		0x8c,				// ADC A, L
 		0x8d,				// ADC A, H
 		0x8f,				// ADC A, A
-	}));
+	});
 
 	cpu.reset();
 
@@ -383,14 +389,14 @@ TEST(instructions, op_scf)
 	// 1 4
 	// - 0 0 1
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x3f,				// SCF
 		0x3f,				// SCF
 		0x3f,				// SCF
-	}));
+	});
 
 	cpu.reset();
 
@@ -416,13 +422,13 @@ TEST(instructions, op_ccf)
 	// 1 4
 	// - 0 0 1
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x37,				// CCF
 		0x37,				// CCF
-	}));
+	});
 
 	cpu.reset();
 
@@ -443,12 +449,12 @@ TEST(instructions, op_sbc_r8)
 	// 1 4
 	// Z 1 H C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x01,			// LD B, 0x01
 		0x0e, 0x02,			// LD C, 0x02
 		0x16, 0x03,			// LD D, 0x03
@@ -463,7 +469,7 @@ TEST(instructions, op_sbc_r8)
 		0x9c,				// SBC A, H
 		0x9d,				// SBC A, L
 		0x9f,				// SBC A, A
-	}));
+	});
 
 	cpu.reset();
 
@@ -499,12 +505,12 @@ TEST(instructions, op_sbc_hl)
 	// 1 8
 	// Z 1 H C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x36, 0xff,			// LD (HL), 0xff
 		0x9e,				// SBC A, (HL)
@@ -513,7 +519,7 @@ TEST(instructions, op_sbc_hl)
 		0x36, 0x03,			// LD (HL), 0x03
 		0x37,				// CCF
 		0x9e,				// SBC A, (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -548,12 +554,12 @@ TEST(instructions, op_sub_r8)
 	// 1 4
 	// Z 1 H C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x01,			// LD B, 0x01
 		0x0e, 0x02,			// LD C, 0x02
 		0x16, 0x03,			// LD D, 0x03
@@ -568,7 +574,7 @@ TEST(instructions, op_sub_r8)
 		0x94,				// SUB A, H
 		0x95,				// SUB A, L
 		0x97,				// SUB A, A
-	}));
+	});
 
 	cpu.reset();
 
@@ -604,12 +610,12 @@ TEST(instructions, op_sub_hl)
 	// 1 8
 	// Z 1 H C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x36, 0xff,			// LD (HL), 0xff
 		0x96,				// SUB A, (HL)
@@ -618,7 +624,7 @@ TEST(instructions, op_sub_hl)
 		0x36, 0x03,			// LD (HL), 0x03
 		0x37,				// CCF
 		0x96,				// SUB A, (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -653,12 +659,12 @@ TEST(instructions, op_add_r8)
 	// 1 4
 	// Z 0 H C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0xc6,			// LD B, 0xc6
 		0x0e, 0x0f,			// LD C, 0x0f
 		0x16, 0x01,			// LD D, 0x01
@@ -673,7 +679,7 @@ TEST(instructions, op_add_r8)
 		0x84,				// ADD A, L
 		0x85,				// ADD A, H
 		0x87,				// ADD A, A
-	}));
+	});
 
 	cpu.reset();
 
@@ -709,12 +715,12 @@ TEST(instructions, op_add_r8_hl)
 	// 2 8
 	// Z 0 H C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0xc6,			// LD A, 0xc6
 		0x77,				// LD (HL), A
@@ -722,7 +728,7 @@ TEST(instructions, op_add_r8_hl)
 		0x86,				// ADD A, (HL)
 		0x3e, 0x0f,			// LD A, 0x0f
 		0x86,				// ADD A, (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -749,13 +755,13 @@ TEST(instructions, op_di)
 	// 1 4
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0xfb,				// EI
 		0xf3,				// DI
-	}));
+	});
 
 	cpu.reset();
 
@@ -778,13 +784,13 @@ TEST(instructions, op_ei)
 	// 1 4
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0xf3,				// DI
 		0xfb,				// EI
-	}));
+	});
 
 	cpu.reset();
 
@@ -807,12 +813,12 @@ TEST(instructions, op_add_hl_r16)
 	// 1 8
 	// - 0 H C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x31, 0x22, 0x11,	// LD SP, 0x1122
 		0x01, 0x44, 0x33,	// LD BC, 0x3344
 		0x11, 0x66, 0x55,	// LD DE, 0x5566
@@ -821,7 +827,7 @@ TEST(instructions, op_add_hl_r16)
 		0x19,				// ADD HL, DE
 		0x29,				// ADD HL, HL
 		0x39,				// ADD HL, SP
-	}));
+	});
 
 	cpu.reset();
 
@@ -858,18 +864,18 @@ TEST(instructions, op_ldi_r8)
 	// 1 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0xf1,			// LD A, 0xf1
 		0x77,				// LD (HL), A
 		0xaf,				// XOR A
 		0x2a,				// LDI A, (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -889,16 +895,16 @@ TEST(instructions, op_ldi_hl)
 	// 1 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0xf1,			// LD A, 0xf1
 		0x22,				// LDI (HL), A
-	}));
+	});
 
 	cpu.reset();
 
@@ -918,18 +924,18 @@ TEST(instructions, op_ldd_r8)
 	// 1 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x01, 0xc0,	// LD HL, 0xc001
 		0x3e, 0xf1,			// LD A, 0xf1
 		0x77,				// LD (HL), A
 		0xaf,				// XOR A
 		0x3a,				// LDD A, (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -949,16 +955,16 @@ TEST(instructions, op_ldd_hl)
 	// 1 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x01, 0xc0,	// LD HL, 0xc001
 		0x3e, 0x34,			// LD A, 0x34
 		0x32,				// LDD (HL), A
-	}));
+	});
 
 	cpu.reset();
 	step_n(cpu, 2, addr, cycle);
@@ -977,12 +983,12 @@ TEST(instructions, op_ld_r8_hl)
 	// 1 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0x77,			// LD A, 0x11
 		0x77,				// LD (HL), A
@@ -999,7 +1005,7 @@ TEST(instructions, op_ld_r8_hl)
 		0x6e,				// LD L, (HL)
 		0x77,				// LD (HL), A
 		0x7e,				// LD A, (HL)
-		}));
+		});
 
 	cpu.reset();
 
@@ -1037,16 +1043,16 @@ TEST(instructions, op_ld_hl)
 	// 2 12
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x36, 0x12,			// LD (HL), 0x12
 		0x36, 0x23,			// LD (HL), 0x23
-	}));
+	});
 
 	cpu.reset();
 
@@ -1071,12 +1077,12 @@ TEST(instructions, op_ld_hl_r8)
 	// 1 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x12,			// LD B, 0x12
 		0x0e, 0x23,			// LD C, 0x23
 		0x16, 0x34,			// LD D, 0x34
@@ -1091,7 +1097,7 @@ TEST(instructions, op_ld_hl_r8)
 		0x74,				// LD (HL), H
 		0x75,				// LD (HL), L
 		0x77,				// LD (HL), A
-	}));
+	});
 
 	cpu.reset();
 
@@ -1127,12 +1133,12 @@ TEST(instructions, op_xor_r8)
 	// 1 4
 	// Z 0 0 0
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x12,			// LD B, 0x12
 		0x0e, 0x23,			// LD C, 0x23
 		0x16, 0x34,			// LD D, 0x34
@@ -1147,7 +1153,7 @@ TEST(instructions, op_xor_r8)
 		0xac,				// XOR H
 		0xad,				// XOR L
 		0xaf,				// XOR A
-	}));
+	});
 
 	cpu.reset();
 
@@ -1183,18 +1189,18 @@ TEST(instructions, op_xor_hl)
 	// 1 8
 	// Z 0 0 0
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0x11,			// LD A, 0x11
 		0x77,				// LD (HL), A
 		0x3e, 0x22,			// LD A, 0x22
 		0xae,				// XOR (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -1213,12 +1219,12 @@ TEST(instructions, op_or_r8)
 	// 1 4
 	// Z 0 0 0
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x00,			// LD B, 0x00
 		0x0e, 0x01,			// LD C, 0x01
 		0x16, 0x02,			// LD D, 0x02
@@ -1233,7 +1239,7 @@ TEST(instructions, op_or_r8)
 		0xb4,				// OR H
 		0xb5,				// OR L
 		0xb7,				// OR A
-	}));
+	});
 
 	cpu.reset();
 
@@ -1269,19 +1275,19 @@ TEST(instructions, op_or_hl)
 	// 1 8
 	// Z 0 0 0
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0xb6,				// OR (HL)
 		0x3e, 0xc3,			// LD A, 0xc3
 		0x77,				// LD (HL), A
 		0x3e, 0xa5,			// LD A, 0xa5
 		0xb6,				// OR (HL)
-		}));
+		});
 
 	cpu.reset();
 	step_n(cpu, 1, addr, cycle);
@@ -1307,12 +1313,12 @@ TEST(instructions, op_cp_r8)
 	// 1 4
 	// Z 1 H C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x00,			// LD B, 0x00
 		0x0e, 0x40,			// LD C, 0x40
 		0x16, 0x3c,			// LD D, 0x3c
@@ -1327,7 +1333,7 @@ TEST(instructions, op_cp_r8)
 		0xbc,				// CP H
 		0xbd,				// CP L
 		0xbf,				// CP A
-	}));
+	});
 
 	cpu.reset();
 
@@ -1362,12 +1368,12 @@ TEST(instructions, op_cp_hl)
 	// 1 8
 	// Z 1 H C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0x40,			// LD A, 0x40
 		0x77,				// LD (HL), A
@@ -1375,7 +1381,7 @@ TEST(instructions, op_cp_hl)
 		0xbe,				// CP (HL)
 		0x3e, 0x40,			// LD A, 0x40
 		0xbe,				// CP (HL)
-	}));
+	});
 
 	cpu.reset();
 	step_n(cpu, 4, addr, cycle);
@@ -1399,12 +1405,12 @@ TEST(instructions, op_undefined)
 	// 1 4
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0xd3,				// UNDEF
 		0xdb,				// UNDEF
 		0xdd,				// UNDEF
@@ -1416,7 +1422,7 @@ TEST(instructions, op_undefined)
 		0xf4,				// UNDEF
 		0xfc,				// UNDEF
 		0xfd,				// UNDEF
-	}));
+	});
 
 	cpu.reset();
 
@@ -1454,15 +1460,15 @@ TEST(instructions, op_cb)
 	// 0 0
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x3e, 0x0f,			// LD A, 0x0f
 		0xcb, 0x37,			// CB SWAP A
-	}));
+	});
 
 	cpu.reset();
 
@@ -1482,12 +1488,12 @@ TEST(instructions, op_and_r8)
 	// 1 4
 	// Z 0 1 0
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0xfe,			// LD B, 0xfe
 		0x0e, 0xfc,			// LD C, 0xfc
 		0x16, 0xf8,			// LD D, 0xf8
@@ -1502,7 +1508,7 @@ TEST(instructions, op_and_r8)
 		0xa4,				// AND H
 		0xa5,				// AND L
 		0xa7,				// AND A
-	}));
+	});
 
 	cpu.reset();
 
@@ -1538,12 +1544,12 @@ TEST(instructions, op_and_hl)
 	// 1 8
 	// Z 0 1 0
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0xc3,			// LD A, 0xc3
 		0xa6,				// AND (HL)
@@ -1551,7 +1557,7 @@ TEST(instructions, op_and_hl)
 		0x77,				// LD (HL), A
 		0x3e, 0xa5,			// LD A, 0xa5
 		0xa6,				// AND (HL)
-	}));
+	});
 
 	cpu.reset();
 	step_n(cpu, 2, addr, cycle);
@@ -1577,10 +1583,10 @@ TEST(instructions, op_ld_r8)
 	// 1 4
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x12,			// LD B, 0x12
 		0x0e, 0x23,			// LD C, 0x23
 		0x16, 0x34,			// LD D, 0x34
@@ -1588,7 +1594,7 @@ TEST(instructions, op_ld_r8)
 		0x26, 0x56,			// LD H, 0x56
 		0x2e, 0x67,			// LD L, 0x67
 		0x3e, 0x78,			// LD A, 0x78
-	}));
+	});
 
 	cpu.reset();
 
@@ -1641,12 +1647,12 @@ TEST(instructions, op_ld_r8_r8)
 	// 1 4
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x00,			// LD B, 0x00
 		0x0e, 0x01,			// LD C, 0x01
 		0x16, 0x02,			// LD D, 0x02
@@ -1703,7 +1709,7 @@ TEST(instructions, op_ld_r8_r8)
 		0x7c,				// LD A, L
 		0x7d,				// LD A, H
 		0x7f,				// LD A, A
-	}));
+	});
 
 	cpu.reset();
 	step_n(cpu, 7, addr, cycle);
@@ -1780,13 +1786,13 @@ TEST(instructions, op_nop)
 	// 1 4
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x00,				// NOP
 		0x00,				// NOP
-	}));
+	});
 
 	cpu.reset();
 
@@ -1807,12 +1813,12 @@ TEST(instructions, op_inc_r8)
 	// 1 4
 	// Z 0 H -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x00,			// LD B, 0x00
 		0x0e, 0x01,			// LD C, 0x01
 		0x16, 0x02,			// LD D, 0x02
@@ -1827,7 +1833,7 @@ TEST(instructions, op_inc_r8)
 		0x24,				// INC H
 		0x2c,				// INC L
 		0x3c,				// INC A
-	}));
+	});
 
 	cpu.reset();
 	step_n(cpu, 7, addr, cycle);
@@ -1863,15 +1869,15 @@ TEST(instructions, op_inc_r16)
 	// 1 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x03,				// INC BC
 		0x13,				// INC DE
 		0x23,				// INC HL
 		0x33,				// INC SP
-	}));
+	});
 
 	cpu.reset();
 
@@ -1906,16 +1912,16 @@ TEST(instructions, op_inc_hl)
 	// 1 12
 	// Z 0 H -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0xff,			// LD A, 0xff
 		0x77,				// LD (HL), A
 		0x34,				// INC (HL)
 		0x34,				// INC (HL)
-	}));
+	});
 
 	cpu.reset();
 	std::uint16_t addr = 0;
@@ -1943,16 +1949,16 @@ TEST(instructions, op_dec_hl)
 	// 1 12
 	// Z 1 H -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0x01,			// LD A, 0x01
 		0x77,				// LD (HL), A
 		0x35,				// DEC (HL)
 		0x35,				// DEC (HL)
-	}));
+	});
 
 	cpu.reset();
 	std::uint16_t addr = 0;
@@ -1979,12 +1985,12 @@ TEST(instructions, op_dec_r8)
 	// 1 4
 	// Z 1 H -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x00,			// LD B, 0x00
 		0x0e, 0x01,			// LD C, 0x01
 		0x16, 0x02,			// LD D, 0x02
@@ -1999,7 +2005,7 @@ TEST(instructions, op_dec_r8)
 		0x25,				// DEC H
 		0x2d,				// DEC L
 		0x3d,				// DEC A
-	}));
+	});
 
 	cpu.reset();
 	step_n(cpu, 7, addr, cycle);
@@ -2035,15 +2041,15 @@ TEST(instructions, op_dec_r16)
 	// 1 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x0b,				// DEC BC
 		0x1b,				// DEC DE
 		0x2b,				// DEC HL
 		0x3b,				// DEC SP
-	}));
+	});
 
 	cpu.reset();
 
@@ -2078,16 +2084,16 @@ TEST(instructions, op_ld_bc_r8)
 	// 1 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x3e, 0x33,			// LD A, 0x33
 		0x01, 0x00, 0xc0,	// LD BC, 0xc000
 		0x02,				// LD (BC), A
-	}));
+	});
 
 	cpu.reset();
 	step_n(cpu, 2, addr, cycle);
@@ -2106,16 +2112,16 @@ TEST(instructions, op_ld_de_r8)
 	// 1 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x3e, 0x33,			// LD A, 0x33
 		0x11, 0x00, 0xc0,	// LD DE, 0xc000
 		0x12,				// LD (DE), A
-	}));
+	});
 
 	cpu.reset();
 	step_n(cpu, 2, addr, cycle);
@@ -2135,18 +2141,18 @@ TEST(instructions, op_ld_r8_bc)
 	// 1 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x3e, 0x22,			// LD A, 0x22
 		0x01, 0x00, 0xc0,	// LD BC, 0xc000
 		0x02,				// LD (BC), A
 		0x3e, 0x44,			// LD A, 0x44
 		0x0a,				// LD A, (BC)
-	}));
+	});
 
 	cpu.reset();
 	step_n(cpu, 4, addr, cycle);
@@ -2165,18 +2171,18 @@ TEST(instructions, op_ld_r8_de)
 	// 1 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x3e, 0x22,			// LD A, 0x22
 		0x11, 0x00, 0xc0,	// LD DE, 0xc000
 		0x12,				// LD (DE), A
 		0x3e, 0x44,			// LD A, 0x44
 		0x1a,				// LD A, (DE)
-	}));
+	});
 
 	cpu.reset();
 	step_n(cpu, 4, addr, cycle);
@@ -2195,15 +2201,15 @@ TEST(instructions, op_ld_r16)
 	// 3 12
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x01, 0xcd, 0xab,	// LD BC, 0xabcd
 		0x11, 0x34, 0x12,	// LD DE, 0x1234
 		0x21, 0x21, 0x43,	// LD HL, 0x4321
 		0x31, 0x0a, 0xf0,	// LD SP, 0xf00a
-	}));
+	});
 
 	cpu.reset();
 
@@ -2238,12 +2244,12 @@ TEST(instructions, op_swap_r8)
 	// 2 8
 	// Z 0 0 0
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x0f,			// LD B, 0x0f
 		0x0e, 0x0f,			// LD C, 0x0f
 		0x16, 0x0f,			// LD D, 0x0f
@@ -2260,7 +2266,7 @@ TEST(instructions, op_swap_r8)
 		0xcb, 0x37,			// CB SWAP A
 		0x06, 0x00,			// LD B, 0x00
 		0xcb, 0x30,			// CB SWAP B
-	}));
+	});
 
 	cpu.reset();
 
@@ -2293,12 +2299,12 @@ TEST(instructions, op_swap_hl)
 	// 2 16
 	// Z 0 0 0
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0x9a,			// LD A, 0x9a
 		0x77,				// LD (HL), A
@@ -2306,7 +2312,7 @@ TEST(instructions, op_swap_hl)
 		0xaf,				// XOR A
 		0x77,				// LD (HL), A
 		0xcb, 0x36,			// CB SWAP (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -2333,12 +2339,12 @@ TEST(instructions, op_bit_r8)
 	// 2 8
 	// Z 0 1 -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x9d,			// LD B, 0x9d
 		0x0e, 0x9d,			// LD C, 0x9d
 		0x16, 0x9d,			// LD D, 0x9d
@@ -2402,7 +2408,7 @@ TEST(instructions, op_bit_r8)
 		0xcb, 0x7c,			// CB BIT 7, H
 		0xcb, 0x7d,			// CB BIT 7, L
 		0xcb, 0x7f,			// CB BIT 7, A
-	}));
+	});
 
 	cpu.reset();
 
@@ -2442,12 +2448,12 @@ TEST(instructions, op_bit_hl)
 	// 2 8
 	// Z 0 1 -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0x9d,			// LD A, 0x9d
 		0x77,				// LD (HL), A
@@ -2459,7 +2465,7 @@ TEST(instructions, op_bit_hl)
 		0xcb, 0x6e,			// CB BIT 5, (HL)
 		0xcb, 0x76,			// CB BIT 6, (HL)
 		0xcb, 0x7e,			// CB BIT 7, (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -2496,10 +2502,10 @@ TEST(instructions, op_res_r8)
 	// 2 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0xff,			// LD B, 0xff
 		0x0e, 0xff,			// LD C, 0xff
 		0x16, 0xff,			// LD D, 0xff
@@ -2563,7 +2569,7 @@ TEST(instructions, op_res_r8)
 		0xcb, 0xbc,			// CB RES 7, H
 		0xcb, 0xbd,			// CB RES 7, L
 		0xcb, 0xbf,			// CB RES 7, A
-	}));
+	});
 
 	cpu.reset();
 
@@ -2606,12 +2612,12 @@ TEST(instructions, op_res_hl)
 	// 2 16
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0xff,			// LD A, 0xff
 		0x77,				// LD (HL), A
@@ -2623,7 +2629,7 @@ TEST(instructions, op_res_hl)
 		0xcb, 0xae,			// CB RES 5, (HL)
 		0xcb, 0xb6,			// CB RES 6, (HL)
 		0xcb, 0xbe,			// CB RES 7, (HL)
-		}));
+		});
 
 	cpu.reset();
 
@@ -2659,10 +2665,10 @@ TEST(instructions, op_set_r8)
 	// 2 8
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0xcb, 0xc0,			// CB SET 0, B
 		0xcb, 0xc1,			// CB SET 0, C
 		0xcb, 0xc2,			// CB SET 0, D
@@ -2719,7 +2725,7 @@ TEST(instructions, op_set_r8)
 		0xcb, 0xfc,			// CB SET 7, H
 		0xcb, 0xfd,			// CB SET 7, L
 		0xcb, 0xff,			// CB SET 7, A
-	}));
+	});
 
 	cpu.reset();
 
@@ -2759,12 +2765,12 @@ TEST(instructions, op_set_hl)
 	// 2 16
 	// - - - -
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x77,				// LD (HL), A
 		0xcb, 0xc6,			// CB SET 0, (HL)
@@ -2775,7 +2781,7 @@ TEST(instructions, op_set_hl)
 		0xcb, 0xee,			// CB SET 5, (HL)
 		0xcb, 0xf6,			// CB SET 6, (HL)
 		0xcb, 0xfe,			// CB SET 7, (HL)
-		}));
+		});
 
 	cpu.reset();
 
@@ -2811,12 +2817,12 @@ TEST(instructions, op_srl_r8)
 	// 2 8
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x80,			// LD B, 0x80
 		0x0e, 0x40,			// LD C, 0x40
 		0x16, 0x20,			// LD D, 0x20
@@ -2831,7 +2837,7 @@ TEST(instructions, op_srl_r8)
 		0xcb, 0x3c,			// CB SRL H
 		0xcb, 0x3d,			// CB SRL L
 		0xcb, 0x3f,			// CB SRL A
-		}));
+		});
 
 	cpu.reset();
 
@@ -2866,12 +2872,12 @@ TEST(instructions, op_srl_hl)
 	// 2 16
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0xab,			// LD A, 0xab
 		0x77,				// LD (HL), A
@@ -2879,7 +2885,7 @@ TEST(instructions, op_srl_hl)
 		0x3e, 0x01,			// LD A, 0x01
 		0x77,				// LD (HL), A
 		0xcb, 0x3e,			// CB SRL (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -2908,12 +2914,12 @@ TEST(instructions, op_sra_r8)
 	// 2 8
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x80,			// LD B, 0x80
 		0x0e, 0x40,			// LD C, 0x40
 		0x16, 0x20,			// LD D, 0x20
@@ -2928,7 +2934,7 @@ TEST(instructions, op_sra_r8)
 		0xcb, 0x2c,			// CB SRA H
 		0xcb, 0x2d,			// CB SRA L
 		0xcb, 0x2f,			// CB SRA A
-	}));
+	});
 
 	cpu.reset();
 
@@ -2963,12 +2969,12 @@ TEST(instructions, op_sra_hl)
 	// 2 16
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0xab,			// LD A, 0xab
 		0x77,				// LD (HL), A
@@ -2976,7 +2982,7 @@ TEST(instructions, op_sra_hl)
 		0x3e, 0x01,			// LD A, 0x01
 		0x77,				// LD (HL), A
 		0xcb, 0x2e,			// CB SRA (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -3006,12 +3012,12 @@ TEST(instructions, op_sla_r8)
 	// 2 8
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0xff,			// LD B, 0xff
 		0x0e, 0x7f,			// LD C, 0x7f
 		0x16, 0x80,			// LD D, 0x80
@@ -3026,7 +3032,7 @@ TEST(instructions, op_sla_r8)
 		0xcb, 0x24,			// CB SLA H
 		0xcb, 0x25,			// CB SLA L
 		0xcb, 0x27,			// CB SLA A
-	}));
+	});
 
 	cpu.reset();
 
@@ -3061,12 +3067,12 @@ TEST(instructions, op_sla_hl)
 	// 2 8
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0xff,			// LD A, 0xff
 		0x77,				// LD (HL), A
@@ -3077,7 +3083,7 @@ TEST(instructions, op_sla_hl)
 		0x3e, 0x80,			// LD A, 0x80
 		0x77,				// LD (HL), A
 		0xcb, 0x26,			// CB SLA (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -3116,12 +3122,12 @@ TEST(instructions, op_rlc_r8)
 	// 2 8
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0xaa,			// LD B, 0xaa
 		0x0e, 0x00,			// LD C, 0x00
 		0x16, 0x55,			// LD D, 0x55
@@ -3136,7 +3142,7 @@ TEST(instructions, op_rlc_r8)
 		0xcb, 0x04,			// CB RLC H
 		0xcb, 0x05,			// CB RLC L
 		0xcb, 0x07,			// CB RLC A
-	}));
+	});
 
 	cpu.reset();
 
@@ -3171,12 +3177,12 @@ TEST(instructions, op_rlc_hl)
 	// 2 16
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0xaa,			// LD A, 0xaa
 		0x77,				// LD (HL), A
@@ -3187,7 +3193,7 @@ TEST(instructions, op_rlc_hl)
 		0x3e, 0x55,			// LD A, 0x55
 		0x77,				// LD (HL), A
 		0xcb, 0x06,			// CB RLC (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -3226,12 +3232,12 @@ TEST(instructions, op_rrc_r8)
 	// 2 8
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0xaa,			// LD B, 0xaa
 		0x0e, 0x00,			// LD C, 0x00
 		0x16, 0x01,			// LD D, 0x01
@@ -3246,7 +3252,7 @@ TEST(instructions, op_rrc_r8)
 		0xcb, 0x0c,			// CB RRC H
 		0xcb, 0x0d,			// CB RRC L
 		0xcb, 0x0f,			// CB RRC A
-	}));
+	});
 
 	cpu.reset();
 
@@ -3281,12 +3287,12 @@ TEST(instructions, op_rrc_hl)
 	// 2 16
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0xaa,			// LD A, 0xaa
 		0x77,				// LD (HL), A
@@ -3297,7 +3303,7 @@ TEST(instructions, op_rrc_hl)
 		0x3e, 0x01,			// LD A, 0x01
 		0x77,				// LD (HL), A
 		0xcb, 0x0e,			// CB RRC (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -3336,12 +3342,12 @@ TEST(instructions, op_rl_r8)
 	// 2 8
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x80,			// LD B, 0x80
 		0x0e, 0x00,			// LD C, 0x00
 		0x16, 0x00,			// LD D, 0x00
@@ -3356,7 +3362,7 @@ TEST(instructions, op_rl_r8)
 		0xcb, 0x14,			// CB RL H
 		0xcb, 0x15,			// CB RL L
 		0xcb, 0x17,			// CB RL A
-	}));
+	});
 
 	cpu.reset();
 
@@ -3391,12 +3397,12 @@ TEST(instructions, op_rl_hl)
 	// 2 16
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0x80,			// LD A, 0x80
 		0x77,				// LD (HL), A
@@ -3407,7 +3413,7 @@ TEST(instructions, op_rl_hl)
 		0x3e, 0x00,			// LD A, 0x00
 		0x77,				// LD (HL), A
 		0xcb, 0x16,			// CB RL (HL)
-	}));
+	});
 
 	cpu.reset();
 
@@ -3446,12 +3452,12 @@ TEST(instructions, op_rr_r8)
 	// 2 8
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x06, 0x01,			// LD B, 0x01
 		0x0e, 0x00,			// LD C, 0x00
 		0x16, 0x00,			// LD D, 0x00
@@ -3466,7 +3472,7 @@ TEST(instructions, op_rr_r8)
 		0xcb, 0x1c,			// CB RR H
 		0xcb, 0x1d,			// CB RR L
 		0xcb, 0x1f,			// CB RR A
-	}));
+	});
 
 	cpu.reset();
 
@@ -3501,12 +3507,12 @@ TEST(instructions, op_rr_hl)
 	// 2 16
 	// Z 0 0 C
 
-	mmu mmu;
+	mmu_buf mmu;
 	lr35902 cpu{ mmu };
 	std::uint16_t addr = 0;
 	std::uint64_t cycle = 0;
 
-	mmu.set_cartridge(cartridge_buf({
+	mmu.set_data({
 		0x21, 0x00, 0xc0,	// LD HL, 0xc000
 		0x3e, 0x01,			// LD A, 0x01
 		0x77,				// LD (HL), A
@@ -3517,7 +3523,7 @@ TEST(instructions, op_rr_hl)
 		0x3e, 0x00,			// LD A, 0x00
 		0x77,				// LD (HL), A
 		0xcb, 0x1e,			// CB RR (HL)
-		}));
+		});
 
 	cpu.reset();
 

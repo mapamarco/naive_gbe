@@ -23,6 +23,18 @@ namespace naive_gbe
 
 		using buffer = std::vector<std::uint8_t>;
 
+		cartridge() = default;
+
+		cartridge(buffer&& data) :
+			data_(data)
+		{
+		}
+
+		cartridge(std::initializer_list<std::uint8_t> data) :
+			data_(data)
+		{
+		}
+
 		bool load(std::filesystem::path const& file_name, std::error_code& ec)
 		{
 			if (!std::filesystem::exists(file_name, ec))

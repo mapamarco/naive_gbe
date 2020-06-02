@@ -12,7 +12,7 @@
 #include <string_view>
 #include <functional>
 
-namespace naive
+namespace naive_gbe
 {
 	template <typename DurationType>
 	class benchmark

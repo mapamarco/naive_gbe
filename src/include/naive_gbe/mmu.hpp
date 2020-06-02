@@ -46,13 +46,13 @@ namespace naive_gbe
 			cartridge_ = cartridge;
 			auto data = cartridge_.get_data();
 
-			for (std::size_t indx = 0; indx < data.size(); ++indx)
-				memory_[indx] = data[indx];
+			//for (std::size_t indx = 0; indx < data.size(); ++indx)
+			//	memory_[indx] = data[indx];
 			//for (std::size_t indx = 0x100; indx < data.size(); ++indx)
 			//	memory_[indx] = data[indx];
 		}
 
-	private:
+	protected:
 
 		std::array<std::uint8_t, 256> get_bootstrap() const
 		{

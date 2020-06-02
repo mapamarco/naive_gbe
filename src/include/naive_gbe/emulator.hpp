@@ -28,15 +28,20 @@ namespace naive_gbe
 		{
 		}
 
-		bool load(std::filesystem::path const& file_name, std::error_code& ec)
+		void load_cartridge(cartridge&& cartridge)
+		{
+			mmu_.set_cartridge(std::move(cartridge));
+			cpu_.reset();
+		}
+
+		bool load_file(std::filesystem::path const& file_name, std::error_code& ec)
 		{
 			cartridge cartridge;
 
 			if (!cartridge.load(file_name, ec))
 				return false;
 
-			mmu_.set_cartridge(std::move(cartridge));
-			cpu_.reset();
+			load_cartridge(std::move(cartridge));
 
 			return true;
 		}

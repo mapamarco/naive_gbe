@@ -6,45 +6,69 @@
 //
 #include <iostream>
 #include <cstdlib>
+#include <fstream>
 #include <filesystem>
+namespace fs = std::filesystem;
 
 #include <naive_gbe/emulator.hpp>
+using namespace naive_gbe;
+
+void log_info(std::ofstream& fs, std::string const& msg)
+{
+	if (fs.is_open())
+		fs << msg << '\n';
+}
+
+std::ofstream get_log_stream(fs::path log_path)
+{
+	std::ofstream fs{ log_path };
+	if (!fs.is_open())
+		std::cerr << "Could not create the log file: " << log_path << ".\n";
+
+	return fs;
+}
 
 int main(int argc, char** argv)
 {
-	if (argc != 2)
+	if (argc < 2 || argc > 3)
 	{
-		std::filesystem::path cmd_path = argv[0];
+		fs::path cmd_path = argv[0];
 
-		std::cerr << "Usage: " << cmd_path.filename() << " <rom_file>\n";
+		std::cerr << "Usage: " << cmd_path.filename() << " <rom_file> [log_file]\n";
 
 		return EXIT_FAILURE;
 	}
 
-	naive_gbe::emulator emulator;
+	emulator emu;
 	std::error_code ec;
-	std::filesystem::path rom_path = argv[1];
+	fs::path rom_path = argv[1];
 
-	if (!emulator.load(rom_path, ec))
+	if (!emu.load_file(rom_path, ec))
 	{
-		std::string error_detail;
+		std::string detail;
 		if (ec)
-			error_detail = ". Error: " + ec.message();
+			detail = ". Error: " + ec.message();
 
 		std::cerr
 			<< "Could not load rom file: " << rom_path
-			<< error_detail << ".\n";
+			<< detail << ".\n";
 
 		return EXIT_FAILURE;
 	}
 
-	auto& cpu = emulator.get_cpu();
-
-	while (true)
+	std::ofstream log;
+	if (argc == 3)
 	{
-		std::cout << emulator.disassembly() << '\n';
+		fs::path log_path = argv[2];
+		log = get_log_stream(log_path);
+	}
+
+	auto& cpu = emu.get_cpu();
+	while (cpu.get_state() != lr35902::state::stopped)
+	{
+		log_info(log, emu.disassembly());
 		cpu.step();
-		std::cout << emulator.cpu_state() << '\n';
+		log_info(log, emu.cpu_state());
 	}
 
 	return EXIT_SUCCESS;
