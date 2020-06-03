@@ -1,7 +1,8 @@
 //
 //            Copyright (c) Marco Amorim 2020.
-// This project can not be copied and/or distributed without the
-// express permission of his author.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          http://www.boost.org/LICENSE_1_0.txt)
 //
 #pragma once
 

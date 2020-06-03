@@ -12,11 +12,8 @@
 #include <system_error>
 #include <filesystem>
 
-#include <naive_gbe/device.hpp>
-
 namespace naive_gbe
 {
-
 	class cartridge
 	{
 	public:

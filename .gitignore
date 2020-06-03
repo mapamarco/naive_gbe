@@ -38,3 +38,6 @@ x64
 *.vcxproj.user
 .vs
 packages/
+
+# Qt Creator
+*.user

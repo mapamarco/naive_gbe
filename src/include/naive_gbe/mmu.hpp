@@ -15,7 +15,6 @@
 #include <chrono>
 #include <array>
 
-#include <naive_gbe/device.hpp>
 #include <naive_gbe/cartridge.hpp>
 
 namespace naive_gbe
