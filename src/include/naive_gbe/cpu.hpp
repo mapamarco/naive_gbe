@@ -19,6 +19,11 @@ namespace naive_gbe
 	{
 	public:
 
+		enum frequencies : std::size_t
+		{
+			nominal		= 4194304
+		};
+
 		enum class state : std::uint8_t
 		{
 			stopped,

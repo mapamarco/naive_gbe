@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <sstream>
 #include <iomanip>
+#include <chrono>
 
 #include <naive_gbe/mmu.hpp>
 #include <naive_gbe/cpu.hpp>
@@ -17,14 +18,13 @@
 
 namespace naive_gbe
 {
-
 	class emulator
 	{
 	public:
 
 		emulator() :
-			cpu_(mmu_),
-			disasm_(mmu_)
+			cpu_{ mmu_ },
+			disasm_{ mmu_ }
 		{
 		}
 
@@ -54,6 +54,35 @@ namespace naive_gbe
 		mmu const& get_mmu() const
 		{
 			return mmu_;
+		}
+
+		std::size_t run()
+		{
+			std::size_t curr_cycle = cpu_.get_cycle();
+			std::size_t last_cycle = curr_cycle + 1;
+			std::size_t num_steps = 0;
+
+			if (curr_cycle)
+			{
+				using namespace std::chrono;
+
+				auto now = high_resolution_clock::now();
+				auto elapsed_us = duration_cast<microseconds>(now - last_run_).count();
+
+				if (elapsed_us)
+					last_cycle = curr_cycle + (lr35902::frequencies::nominal * 1000) / elapsed_us;
+			}
+
+			while (curr_cycle < last_cycle)
+			{
+				cpu_.step();
+				curr_cycle = cpu_.get_cycle();
+				++num_steps;
+			}
+
+			last_run_ = std::chrono::high_resolution_clock::now();
+
+			return num_steps;
 		}
 
 		std::string cpu_state()
@@ -89,9 +118,12 @@ namespace naive_gbe
 
 	private:
 
+		using time_point = std::chrono::high_resolution_clock::time_point;
+
 		mmu				mmu_;
 		lr35902			cpu_;
 		disassembler	disasm_;
+		time_point		last_run_;
 	};
 
 }

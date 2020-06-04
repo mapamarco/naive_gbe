@@ -10,6 +10,9 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
+#include <chrono>
+#include <thread>
+
 #include <naive_gbe/emulator.hpp>
 using namespace naive_gbe;
 
@@ -64,6 +67,16 @@ int main(int argc, char** argv)
 	}
 
 	auto& cpu = emu.get_cpu();
+
+	//std::size_t num_steps = 0;
+	//for (auto i = 0; i < 60; ++i)
+	//{
+	//	num_steps += emu.run();
+	//	log_info(log, std::to_string(num_steps));
+	//	std::this_thread::sleep_for(std::chrono::milliseconds(1000 / 60));
+	//}
+	//return 0;
+
 	while (cpu.get_state() != lr35902::state::stopped)
 	{
 		log_info(log, emu.disassembly());
