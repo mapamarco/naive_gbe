@@ -1,4 +1,5 @@
 # Game Boy Emulator
+[![Build Status](https://travis-ci.org/mapamarco/naive_gbe.svg?branch=master)](https://travis-ci.org/mapamarco/naive_gbe)
 
 WIP
 
