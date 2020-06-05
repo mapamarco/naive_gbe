@@ -10,7 +10,6 @@
 #include <vector>
 #include <cstdint>
 #include <system_error>
-#include <filesystem>
 
 namespace naive_gbe
 {
@@ -32,11 +31,8 @@ namespace naive_gbe
 		{
 		}
 
-		bool load(std::filesystem::path const& file_name, std::error_code& ec)
+		bool load(std::string const& file_name, std::error_code& ec)
 		{
-			if (!std::filesystem::exists(file_name, ec))
-				return false;
-
 			std::ifstream stream{ file_name, std::ios::binary | std::ios::ate };
 			if (!stream.is_open())
 			{

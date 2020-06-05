@@ -7,9 +7,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <fstream>
-#include <filesystem>
-namespace fs = std::filesystem;
-
+#include <string>
 #include <chrono>
 #include <thread>
 
@@ -22,7 +20,7 @@ void log_info(std::ofstream& fs, std::string const& msg)
 		fs << msg << '\n';
 }
 
-std::ofstream get_log_stream(fs::path log_path)
+std::ofstream get_log_stream(std::string const& log_path)
 {
 	std::ofstream fs{ log_path };
 	if (!fs.is_open())
@@ -59,16 +57,14 @@ int main(int argc, char** argv)
 {
 	if (argc < 2 || argc > 3)
 	{
-		fs::path cmd_path = argv[0];
-
-		std::cerr << "Usage: " << cmd_path.filename() << " <rom_file> [log_file]\n";
+		std::cerr << "Usage: " << argv[0] << " <rom_file> [log_file]\n";
 
 		return EXIT_FAILURE;
 	}
 
 	emulator emu;
 	std::error_code ec;
-	fs::path rom_path = argv[1];
+	std::string rom_path = argv[1];
 
 	if (!emu.load_file(rom_path, ec))
 	{
@@ -86,7 +82,7 @@ int main(int argc, char** argv)
 	std::ofstream log;
 	if (argc == 3)
 	{
-		fs::path log_path = argv[2];
+		std::string log_path = argv[2];
 		log = get_log_stream(log_path);
 	}
 

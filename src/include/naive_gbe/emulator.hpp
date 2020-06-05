@@ -34,7 +34,7 @@ namespace naive_gbe
 			cpu_.reset();
 		}
 
-		bool load_file(std::filesystem::path const& file_name, std::error_code& ec)
+		bool load_file(std::string const& file_name, std::error_code& ec)
 		{
 			cartridge cartridge;
 
