@@ -27,9 +27,6 @@ namespace naive_gbe
 		{
 			bootstrap_ = get_bootstrap();
 
-			// http://gameboy.mongenel.com/dmg/asmmemmap.html
-			// http://gameboy.mongenel.com/dmg/asmmemmap.html
-
 			memory_.assign(0x10000, 0);
 			for (std::size_t indx = 0; indx < bootstrap_.size(); ++indx)
 				memory_[indx] = bootstrap_[indx];

@@ -28,7 +28,7 @@ namespace naive_gbe
 		{
 			stopped,
 			running,
-			halted
+			suspended
 		};
 
 		enum flags : std::uint8_t
@@ -1023,7 +1023,6 @@ namespace naive_gbe
 		// opcode
 		// size cycles
 		// Z N H C
-		// https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
 
 		// UNDEF
 		// 1 4
@@ -1057,7 +1056,7 @@ namespace naive_gbe
 		void op_halt()
 		{
 			// TODO
-			state_ = state::halted;
+			state_ = state::suspended;
 		}
 
 		// DI

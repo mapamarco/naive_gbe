@@ -31,6 +31,30 @@ std::ofstream get_log_stream(fs::path log_path)
 	return fs;
 }
 
+std::string cpu_state(naive_gbe::lr35902 const& cpu)
+{
+	std::ostringstream out;
+
+	out << "af=" << std::setw(4) << std::setfill('0')
+		<< std::hex << cpu.get_register(lr35902::r16::AF) << ' '
+		<< "bc=" << std::setw(4) << std::setfill('0')
+		<< std::hex << cpu.get_register(lr35902::r16::BC) << ' '
+		<< "de=" << std::setw(4) << std::setfill('0')
+		<< std::hex << cpu.get_register(lr35902::r16::DE) << ' '
+		<< "hl=" << std::setw(4) << std::setfill('0')
+		<< std::hex << cpu.get_register(lr35902::r16::HL) << ' '
+		<< "sp=" << std::setw(4) << std::setfill('0')
+		<< std::hex << cpu.get_register(lr35902::r16::SP) << ' '
+		<< "pc=" << std::setw(4) << std::setfill('0')
+		<< std::hex << cpu.get_register(lr35902::r16::PC) << ' '
+		<< "z=" << cpu.get_flag(lr35902::flags::zero) << ' '
+		<< "n=" << cpu.get_flag(lr35902::flags::subtraction) << ' '
+		<< "h=" << cpu.get_flag(lr35902::flags::half_carry) << ' '
+		<< "c=" << cpu.get_flag(lr35902::flags::carry);
+
+	return out.str();
+}
+
 int main(int argc, char** argv)
 {
 	if (argc < 2 || argc > 3)
@@ -81,7 +105,7 @@ int main(int argc, char** argv)
 	{
 		log_info(log, emu.disassembly());
 		cpu.step();
-		log_info(log, emu.cpu_state());
+		log_info(log, cpu_state(cpu));
 	}
 
 	return EXIT_SUCCESS;

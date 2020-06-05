@@ -150,10 +150,10 @@
     <ClInclude Include="..\..\..\..\src\include\naive_gbe\benchmark.hpp" />
     <ClInclude Include="..\..\..\..\src\include\naive_gbe\cartridge.hpp" />
     <ClInclude Include="..\..\..\..\src\include\naive_gbe\cpu.hpp" />
-    <ClInclude Include="..\..\..\..\src\include\naive_gbe\device.hpp" />
     <ClInclude Include="..\..\..\..\src\include\naive_gbe\disassembler.hpp" />
     <ClInclude Include="..\..\..\..\src\include\naive_gbe\emulator.hpp" />
     <ClInclude Include="..\..\..\..\src\include\naive_gbe\mmu.hpp" />
+    <ClInclude Include="..\..\..\..\src\include\naive_gbe\ppu.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\src\main.cpp" />
