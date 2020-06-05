@@ -28,7 +28,6 @@ add_executable(
 target_link_libraries(
 	${PROJECT_NAME}
 	gtest
-	gtest_main
 	${CMAKE_THREAD_LIBS_INIT})
 
 gtest_add_tests(${PROJECT_NAME} "" AUTO)

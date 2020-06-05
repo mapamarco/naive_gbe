@@ -2,7 +2,7 @@
 
 WIP
 
-# TODO
+### TODO
 - [x] Instruction set
 - [ ] Travis integration 
 - [ ] Unit tests
@@ -11,7 +11,7 @@ WIP
 - [ ] Pixel Process Unit
 - [ ] GUI
 
-# References
+### References
 http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf
 
 https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
