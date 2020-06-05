@@ -3,6 +3,13 @@ sudo: false
 language: cpp
 compiler: gcc
 
+before_install:
+        - pip install --user cpp-coveralls
+
 script:
-        - cmake .
-        - cmake --build .
+        - CXX=/usr/bin/g++-7 CC=/usr/bin/gcc-7 cmake -DCOVERAGE=1 .
+        - cmake --build . 
+        - ./tests
+
+after_success:
+        - coveralls --root . -E ".*gtest.*" -E ".*CMakeFiles.*"
