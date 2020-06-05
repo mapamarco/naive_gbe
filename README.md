@@ -5,12 +5,14 @@ WIP
 
 ### TODO
 - [x] Instruction set
-- [ ] Travis integration 
+- [x] Travis integration 
 - [ ] Unit tests
 - [ ] Interruptions and timing
 - [ ] Memory Mapping Unit
 - [ ] Pixel Process Unit
 - [ ] GUI
+- [ ] Doxygen
+- [ ] Documentation
 
 ### References
 http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf
