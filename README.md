@@ -1,5 +1,6 @@
 # Game Boy Emulator
 [![Build Status](https://travis-ci.org/mapamarco/naive_gbe.svg?branch=master)](https://travis-ci.org/mapamarco/naive_gbe)
+[![Coverage Status](https://coveralls.io/repos/github/mapamarco/naive_gbe/badge.svg?branch=master)](https://coveralls.io/github/mapamarco/naive_gbe?branch=master)
 
 WIP
 

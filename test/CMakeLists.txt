@@ -21,14 +21,26 @@ include_directories(
 	../src/include
 	${GTEST_INCLUDE_DIR})
 
+SET(COVERAGE OFF CACHE BOOL "Coverage")
+
 add_executable(
 	${PROJECT_NAME}
 	${SRC_LIST})
 
-target_link_libraries(
-	${PROJECT_NAME}
-	gtest
-	${CMAKE_THREAD_LIBS_INIT})
-
 gtest_add_tests(${PROJECT_NAME} "" AUTO)
+
+if (COVERAGE)
+    target_compile_options(
+		${PROJECT_NAME} PRIVATE --coverage)
+
+    target_link_libraries(
+		${PROJECT_NAME} PRIVATE --coverage
+		gtest
+		${CMAKE_THREAD_LIBS_INIT})
+else()
+	target_link_libraries(
+		${PROJECT_NAME}
+		gtest
+		${CMAKE_THREAD_LIBS_INIT})
+endif()
 
