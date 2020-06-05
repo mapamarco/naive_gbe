@@ -12,7 +12,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 install(DIRECTORY src/naive_gbe DESTINATION ${CMAKE_INSTALL_PREFIX})
 
+include(gtest.cmake)
 enable_testing()
+
 add_subdirectory(test)
 add_subdirectory(src)
 
