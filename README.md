@@ -8,6 +8,7 @@ WIP
 - [x] Instruction set
 - [x] Travis integration 
 - [ ] Unit tests
+- [ ] Audio system
 - [ ] Interruptions and timing
 - [ ] Memory Mapping Unit
 - [ ] Pixel Process Unit

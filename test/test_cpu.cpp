@@ -14,14 +14,14 @@ class mmu_buf :
 	public mmu
 {
 public:
-	void set_data(std::initializer_list<std::uint8_t> buffer)
+	void set_data(std::initializer_list<std::uint8_t> data)
 	{
 		memory_.assign(0x10000, 0);
 
-		auto it1 = std::begin(buffer);
+		auto it1 = std::begin(data);
 		auto it2 = std::begin(memory_);
 
-		while (it1 != std::end(buffer) && it2 != std::end(memory_))
+		while (it1 != std::end(data) && it2 != std::end(memory_))
 			*it2++ = *it1++;
 	}
 };

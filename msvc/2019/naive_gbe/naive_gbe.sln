@@ -7,6 +7,20 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "core", "core\core.vcxproj",
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "unit_tests", "unit_tests\unit_tests.vcxproj", "{E4A67995-54AF-4C10-A6CC-7B768AA3B60E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "naive_gbe", "naive_gbe\naive_gbe.vcxproj", "{85C4D388-D41A-45BB-A561-1A82C978E5DD}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{DDEDB7E5-F3A1-4839-ACD8-65F114B9D76C}"
+	ProjectSection(SolutionItems) = preProject
+		..\..\..\.editorconfig = ..\..\..\.editorconfig
+		..\..\..\.gitignore = ..\..\..\.gitignore
+		..\..\..\.gitmodules = ..\..\..\.gitmodules
+		..\..\..\.travis.yml = ..\..\..\.travis.yml
+		..\..\..\CMakeLists.txt = ..\..\..\CMakeLists.txt
+		..\..\..\gtest.cmake = ..\..\..\gtest.cmake
+		..\..\..\LICENSE_1_0.txt = ..\..\..\LICENSE_1_0.txt
+		..\..\..\README.md = ..\..\..\README.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -31,6 +45,14 @@ Global
 		{E4A67995-54AF-4C10-A6CC-7B768AA3B60E}.Release|x64.Build.0 = Release|x64
 		{E4A67995-54AF-4C10-A6CC-7B768AA3B60E}.Release|x86.ActiveCfg = Release|Win32
 		{E4A67995-54AF-4C10-A6CC-7B768AA3B60E}.Release|x86.Build.0 = Release|Win32
+		{85C4D388-D41A-45BB-A561-1A82C978E5DD}.Debug|x64.ActiveCfg = Debug|x64
+		{85C4D388-D41A-45BB-A561-1A82C978E5DD}.Debug|x64.Build.0 = Debug|x64
+		{85C4D388-D41A-45BB-A561-1A82C978E5DD}.Debug|x86.ActiveCfg = Debug|Win32
+		{85C4D388-D41A-45BB-A561-1A82C978E5DD}.Debug|x86.Build.0 = Debug|Win32
+		{85C4D388-D41A-45BB-A561-1A82C978E5DD}.Release|x64.ActiveCfg = Release|x64
+		{85C4D388-D41A-45BB-A561-1A82C978E5DD}.Release|x64.Build.0 = Release|x64
+		{85C4D388-D41A-45BB-A561-1A82C978E5DD}.Release|x86.ActiveCfg = Release|Win32
+		{85C4D388-D41A-45BB-A561-1A82C978E5DD}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

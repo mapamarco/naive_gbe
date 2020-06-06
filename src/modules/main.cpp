@@ -17,7 +17,7 @@ using namespace naive_gbe;
 void log_info(std::ofstream& fs, std::string const& msg)
 {
 	if (fs.is_open())
-		fs << msg << '\n';
+		fs << msg << std::endl;
 }
 
 std::ofstream get_log_stream(std::string const& log_path)
@@ -53,37 +53,62 @@ std::string cpu_state(naive_gbe::lr35902 const& cpu)
 	return out.str();
 }
 
+int report_error(std::string const& message, std::error_code& ec)
+{
+	std::string detail;
+	if (ec)
+		detail = ". Error: " + ec.message();
+
+	std::cerr << message << detail << ".\n";
+
+	return EXIT_FAILURE;
+}
+
 int main(int argc, char** argv)
 {
 	if (argc < 2 || argc > 3)
 	{
-		std::cerr << "Usage: " << argv[0] << " <rom_file> [log_file]\n";
+		std::string file_name = argv[0];
+		auto pos = file_name.find_last_of("\\/");
+
+		std::cerr
+			<< "Usage: " << file_name.substr(pos + 1)
+			<< " <rom_file> [log_file] [bootstrap_file]\n";
 
 		return EXIT_FAILURE;
 	}
 
 	emulator emu;
 	std::error_code ec;
-	std::string rom_path = argv[1];
 
+	std::string rom_path = argv[1];
 	if (!emu.load_file(rom_path, ec))
 	{
-		std::string detail;
-		if (ec)
-			detail = ". Error: " + ec.message();
+		std::string error = "Could not open rom file: " + rom_path;
 
-		std::cerr
-			<< "Could not load rom file: " << rom_path
-			<< detail << ".\n";
-
-		return EXIT_FAILURE;
+		return report_error(error, ec);
 	}
 
 	std::ofstream log;
 	if (argc == 3)
 	{
 		std::string log_path = argv[2];
+
 		log = get_log_stream(log_path);
+	}
+	else
+	{
+		std::string bootstrap_path = argv[3];
+		buffer data = load_file(bootstrap_path, ec);
+
+		if (ec)
+		{
+			std::string error = "Could not open bootstrap file: " + bootstrap_path;
+
+			return report_error(error, ec);
+		}
+
+		emu.set_bootstrap(std::move(data));
 	}
 
 	auto& cpu = emu.get_cpu();

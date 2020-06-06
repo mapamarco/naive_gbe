@@ -4,22 +4,16 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 #
-project(core)
 cmake_minimum_required(VERSION 3.1)
+project(naive_gbe)
 
 aux_source_directory(
 	.
 	SRC_LIST)
 
-find_package(
-	Threads REQUIRED)
-
-include(GoogleTest)
-
 include_directories(
-	include
-	${GTEST_INCLUDE_DIR})
+	include)
 
-add_executable(
+add_library(
 	${PROJECT_NAME}
 	${SRC_LIST})

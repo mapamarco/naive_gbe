@@ -20,7 +20,7 @@ TEST(performance, bootstrap)
 {
 	emulator emu;
 
-	emu.load_cartridge({
+	emu.set_cartridge({
 		0x10,				// STOP
 	});
 

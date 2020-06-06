@@ -4,8 +4,9 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 #
-project(test_gbe)
 cmake_minimum_required(VERSION 3.1)
+project(test_gbe)
+
 cmake_policy(SET CMP0057 NEW)
 
 aux_source_directory(
@@ -18,7 +19,7 @@ find_package(
 include(GoogleTest)
 
 include_directories(
-	../src/include
+	../src/libs/naive_gbe/include
 	${GTEST_INCLUDE_DIR})
 
 SET(COVERAGE OFF CACHE BOOL "Coverage")
@@ -43,4 +44,3 @@ else()
 		gtest
 		${CMAKE_THREAD_LIBS_INIT})
 endif()
-

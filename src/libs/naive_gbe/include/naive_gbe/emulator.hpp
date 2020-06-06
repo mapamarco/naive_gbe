@@ -28,9 +28,15 @@ namespace naive_gbe
 		{
 		}
 
-		void load_cartridge(cartridge&& cartridge)
+		void set_cartridge(cartridge&& cartridge)
 		{
 			mmu_.set_cartridge(std::move(cartridge));
+			cpu_.reset();
+		}
+
+		void set_bootstrap(buffer&& bootstrap)
+		{
+			mmu_.set_bootstrap(std::move(bootstrap));
 			cpu_.reset();
 		}
 
@@ -41,7 +47,7 @@ namespace naive_gbe
 			if (!cartridge.load(file_name, ec))
 				return false;
 
-			load_cartridge(std::move(cartridge));
+			set_cartridge(std::move(cartridge));
 
 			return true;
 		}

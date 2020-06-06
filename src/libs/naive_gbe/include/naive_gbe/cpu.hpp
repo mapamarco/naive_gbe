@@ -10,6 +10,7 @@
 #include <vector>
 #include <array>
 #include <cassert>
+#include <functional>
 
 #include <naive_gbe/mmu.hpp>
 
@@ -1029,8 +1030,7 @@ namespace naive_gbe
 		// - - - -
 		void op_undefined()
 		{
-			std::cerr << "unexpected instruction!\n";
-			//std::abort();
+			state_ = state::stopped;
 		}
 
 		// NOP
