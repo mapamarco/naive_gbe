@@ -8,8 +8,8 @@ WIP
 ### TODO
 - [x] Instruction set
 - [x] Travis CI integration
-- [ ] Appveyor CI integration
-- [ ] Unit tests
+- [x] Appveyor CI integration
+- [x] Unit tests
 - [ ] Audio system
 - [ ] Interruptions and timing
 - [ ] Memory Mapping Unit
