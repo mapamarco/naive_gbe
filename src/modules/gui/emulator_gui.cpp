@@ -9,11 +9,11 @@
 
 namespace naive_gbe
 {
-	emulator_gui::emulator_gui(std::string const& assets_dir, std::uint16_t width, std::uint16_t height)
-		: state_(state::NO_CARTRIDGE)
-		, assets_dir_(assets_dir)
-		, width_(width)
-		, height_(height)
+	emulator_gui::emulator_gui(std::string const& assets_dir)
+		: assets_dir_(assets_dir)
+		, state_(state::NO_CARTRIDGE)
+		, width_(emulator::SCREEN_WIDTH * 3)
+		, height_(emulator::SCREEN_HEIGHT * 3)
 	{
 		keymap_ = get_default_keymap();
 	}
@@ -38,6 +38,13 @@ namespace naive_gbe
 	bool emulator_gui::load_rom(std::string const& rom_path, std::error_code& ec)
 	{
 		return emulator_.load_rom(rom_path, ec);
+	}
+
+	void emulator_gui::set_window_size(std::uint16_t width, std::uint16_t height)
+	{
+		SDL_SetWindowSize(window_, width, height);
+		width_  = width;
+		height_ = height;
 	}
 
 	void emulator_gui::init_sdl()
@@ -87,7 +94,7 @@ namespace naive_gbe
 			SDL_WINDOWPOS_UNDEFINED,
 			width_,
 			height_,
-			SDL_WINDOW_SHOWN);
+			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
 		if (!window_)
 		{
@@ -107,6 +114,8 @@ namespace naive_gbe
 			err << "Renderer could not be created! SDL Error: " << SDL_GetError();
 			throw std::runtime_error(err.str());
 		}
+
+		SDL_ShowCursor(SDL_DISABLE);
 
 		set_icon();
 		load_font();
@@ -171,9 +180,14 @@ namespace naive_gbe
 		}
 	}
 
-	void emulator_gui::set_fullscreen(bool enabled)
+	void emulator_gui::toggle_fullscreen()
 	{
-		int flags = enabled ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_FULLSCREEN_DESKTOP;
+		std::uint32_t flags = SDL_GetWindowFlags(window_);
+
+		if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP)
+			flags = 0;
+		else
+			flags = SDL_WINDOW_FULLSCREEN_DESKTOP;
 
 		if (SDL_SetWindowFullscreen(window_, flags) < 0)
 		{
@@ -230,9 +244,21 @@ namespace naive_gbe
 
 				if (event.key.keysym.sym == SDLK_f)
 				{
-					set_fullscreen(true);
+					toggle_fullscreen();
 					break;
 				}
+
+				if (event.key.keysym.sym == SDLK_3)
+					set_window_size(emulator::SCREEN_WIDTH, emulator::SCREEN_HEIGHT);
+
+				if (event.key.keysym.sym == SDLK_4)
+					set_window_size(emulator::SCREEN_WIDTH * 2, emulator::SCREEN_HEIGHT * 2);
+
+				if (event.key.keysym.sym == SDLK_5)
+					set_window_size(emulator::SCREEN_WIDTH * 3, emulator::SCREEN_HEIGHT * 3);
+
+				if (event.key.keysym.sym == SDLK_6)
+					set_window_size(emulator::SCREEN_WIDTH * 4, emulator::SCREEN_HEIGHT * 4);
 
 				if (event.key.keysym.sym == SDLK_RETURN)
 				{
@@ -294,7 +320,7 @@ namespace naive_gbe
 		SDL_Rect src = { 0, 0, w, h };
 		SDL_Rect dst = { width_ / 2 - w / 2, height_ / 2 - h /2, w, h };
 
-		if (SDL_RenderCopy(renderer_, texture, &src, &dst) == -1)
+		if (SDL_RenderCopy(renderer_, texture, &src, nullptr) == -1)
 		{
 			std::stringstream err;
 			err << "render copy error: " << SDL_GetError();

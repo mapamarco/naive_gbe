@@ -22,6 +22,9 @@ namespace naive_gbe
 	{
 	public:
 
+		static const std::size_t SCREEN_WIDTH	= 160;
+		static const std::size_t SCREEN_HEIGHT	= 144;
+
 		enum class state : std::uint8_t
 		{
 			NO_CARTRIDGE,

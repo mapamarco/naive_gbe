@@ -38,7 +38,7 @@ namespace naive_gbe
 			FINISHED
 		};
 
-		emulator_gui(std::string const& assets_dir, std::uint16_t width = 640, std::uint16_t height = 320);
+		emulator_gui(std::string const& assets_dir);
 
 		virtual ~emulator_gui();
 
@@ -50,6 +50,8 @@ namespace naive_gbe
 
 		using keymap = std::unordered_map<SDL_Keycode, emulator::joypad_input>;
 
+		void set_window_size(std::uint16_t width, std::uint16_t height);
+
 		void init_sdl();
 
 		void deinit_sdl();
@@ -58,7 +60,7 @@ namespace naive_gbe
 
 		void load_font();
 
-		void set_fullscreen(bool enabled);
+		void toggle_fullscreen();
 
 		keymap get_default_keymap() const;
 
@@ -73,8 +75,8 @@ namespace naive_gbe
 		std::string		assets_dir_;
 		std::size_t		num_steps_	= 0;
 		state			state_		= state::NO_CARTRIDGE;
-		uint16_t		width_		= 0;
-		uint16_t		height_		= 0;
+		std::uint16_t	width_		= 0;
+		std::uint16_t	height_		= 0;
 		SDL_Window*		window_		= nullptr;
 		SDL_Renderer*	renderer_	= nullptr;
 		TTF_Font*		font_		= nullptr;
