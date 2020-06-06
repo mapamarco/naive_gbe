@@ -5,7 +5,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 #
 cmake_minimum_required(VERSION 3.1)
-project(naive_gbe)
+project(naive_gameboy_emulator)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,7 +16,7 @@ include(gtest.cmake)
 enable_testing()
 
 add_subdirectory(test)
-add_subdirectory(src/modules)
+add_subdirectory(src/modules/gui)
 add_subdirectory(src/libs/naive_gbe)
 
 find_package(Doxygen)

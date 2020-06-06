@@ -152,6 +152,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\..\src\libs\naive_gbe\cartridge.cpp" />
     <ClCompile Include="..\..\..\..\src\libs\naive_gbe\cpu.cpp" />
+    <ClCompile Include="..\..\..\..\src\libs\naive_gbe\emulator.cpp" />
     <ClCompile Include="..\..\..\..\src\libs\naive_gbe\misc.cpp" />
     <ClCompile Include="..\..\..\..\src\libs\naive_gbe\mmu.cpp" />
   </ItemGroup>
