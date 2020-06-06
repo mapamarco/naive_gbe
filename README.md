@@ -54,8 +54,9 @@ In case you are using a different distro or package manager, look at the documen
 Once all mandatory dependencies have been resolved, run the following commands from the cloned directory:
 
 ```
-cmake .
+cmake . -DCMAKE_BUILD_TYPE=Release
 make
+make tests
 sudo make install
 ```
 

@@ -37,3 +37,5 @@ target_link_libraries(
 set_target_properties(
 	${PROJECT_NAME}
 	PROPERTIES OUTPUT_NAME naive_gbe)
+
+install(TARGETS ${PROJECT_NAME} DESTINATION bin)

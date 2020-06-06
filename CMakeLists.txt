@@ -10,8 +10,6 @@ project(naive_gameboy_emulator)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-install(DIRECTORY src/naive_gbe DESTINATION ${CMAKE_INSTALL_PREFIX})
-
 include(gtest.cmake)
 enable_testing()
 

@@ -17,3 +17,6 @@ include_directories(
 add_library(
 	${PROJECT_NAME}
 	${SRC_LIST})
+
+install(DIRECTORY include DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(TARGETS ${PROJECT_NAME} ARCHIVE DESTINATION lib)
