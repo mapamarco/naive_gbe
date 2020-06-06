@@ -18,6 +18,48 @@ WIP
 - [ ] Doxygen
 - [ ] Documentation
 
+### Cloning the project
+This project depends on GTest for unit testing, and it has it as git submodule. So, you should use the following command to clone the project:
+
+```
+git clone https://github.com/mapamarco/naive_gbe
+cd naive_gbe
+git submodule update --init --recursive
+```
+
+### Build
+
+#### Linux
+
+Dependencies:
+* Mandatory
+  * CMake
+  * SDL2
+  * SDL2-image
+  * SDL2-ttf
+  * SDL2-mixer
+  * C++17 compiler (clang, g++)
+
+* Optional
+  * Doxygen
+
+For example, you can install all dependecies in Ubuntu with apt:
+```
+sudo apt install cmake libsdl2-dev libsdl2-mixer-dev libsdl2-image-dev libsdl2-ttf-dev g++ doxygen graphviz
+```
+
+Once you have all mandatory dependencies installed, just run the following commands in your cloned directory:
+
+```
+cmake .
+make
+sudo make install
+```
+
+#### Windows
+
+There is a VS2019 solution at `msvc/2019/naive_gbe/naive_gbe.sln`. You can use it for build the project. The dependecies on this solution will be resolved by NuGet.
+
 ### References
 http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf
 
