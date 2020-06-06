@@ -274,7 +274,7 @@ namespace naive_gbe
 		SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
 		SDL_RenderClear(renderer_);
 
-		std::string text = "Press ESQ to quit";
+		std::string text = "Press ESC to quit";
 		SDL_Surface* surface = TTF_RenderText_Solid(font_, text.c_str(), SDL_Color{ 0, 0, 255, 0 });
 
 		if (!surface)
