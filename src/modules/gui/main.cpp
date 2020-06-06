@@ -38,7 +38,7 @@ int main(int argc, char** argv)
 
 	try
 	{
-		emulator_gui emu;
+		emulator_gui emu{ "C:/Users/mapam/source/repos/cpp/naive_gbe/assets" };
 		std::error_code ec;
 
 		std::string rom_path = argv[1];

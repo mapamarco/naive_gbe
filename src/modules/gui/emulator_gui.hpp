@@ -10,8 +10,14 @@
 
 #if _WIN32
 	#include <SDL.h>
+	#include <SDL_mixer.h>
+	#include <SDL_ttf.h>
+	#include <SDL_image.h>
 #else
 	#include <SDL2/SDL.h>
+	#include <SDL2/SDL_mixer.h>
+	#include <SDL2/SDL_ttf.h>
+	#include <SDL2/SDL_image.h>
 #endif
 
 #include <naive_gbe/emulator.hpp>
@@ -32,7 +38,7 @@ namespace naive_gbe
 			FINISHED
 		};
 
-		emulator_gui(std::uint16_t width = 640, std::uint16_t height = 320);
+		emulator_gui(std::string const& assets_dir, std::uint16_t width = 640, std::uint16_t height = 320);
 
 		virtual ~emulator_gui();
 
@@ -48,6 +54,12 @@ namespace naive_gbe
 
 		void deinit_sdl();
 
+		void set_icon();
+
+		void load_font();
+
+		void set_fullscreen(bool enabled);
+
 		keymap get_default_keymap() const;
 
 		void process_input();
@@ -58,11 +70,14 @@ namespace naive_gbe
 
 		emulator		emulator_;
 		keymap			keymap_;
+		std::string		assets_dir_;
 		std::size_t		num_steps_	= 0;
 		state			state_		= state::NO_CARTRIDGE;
 		uint16_t		width_		= 0;
 		uint16_t		height_		= 0;
 		SDL_Window*		window_		= nullptr;
 		SDL_Renderer*	renderer_	= nullptr;
+		TTF_Font*		font_		= nullptr;
+		SDL_DisplayMode display_	= {};
 	};
 }

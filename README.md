@@ -66,6 +66,13 @@ There is a VS2019 solution at `msvc/2019/naive_gbe/naive_gbe.sln`. You can use i
 
 All dependencies should be resolved automatically by the package manager NuGet.
 
+### Assets
+Icons made by [Freepik](https://www.flaticon.com/authors/freepik) from [Flaticon](https://www.flaticon.com/)
+
+Menu sound [cabled_mess](https://freesound.org/people/cabled_mess/) from [Freesound](https://freesound.org/people/cabled_mess/sounds/350859/)
+
+Font [Philipp Nurullin](https://www.fontsquirrel.com/fonts/list/foundry/philipp-nurullin) from [Fontsquirrel](https://www.fontsquirrel.com/fonts/jetbrains-mono/)
+
 ### References
 http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf
 
