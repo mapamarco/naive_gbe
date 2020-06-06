@@ -37,10 +37,12 @@ if (COVERAGE)
     target_link_libraries(
 		${PROJECT_NAME} PRIVATE --coverage
 		gtest
+		naive_gbe
 		${CMAKE_THREAD_LIBS_INIT})
 else()
 	target_link_libraries(
 		${PROJECT_NAME}
 		gtest
+		naive_gbe
 		${CMAKE_THREAD_LIBS_INIT})
 endif()

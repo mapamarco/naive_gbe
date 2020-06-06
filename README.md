@@ -6,7 +6,8 @@ WIP
 
 ### TODO
 - [x] Instruction set
-- [x] Travis integration 
+- [x] Travis CI integration
+- [ ] Appveyor CI integration
 - [ ] Unit tests
 - [ ] Audio system
 - [ ] Interruptions and timing
