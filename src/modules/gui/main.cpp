@@ -21,9 +21,9 @@ int report_error(std::string const& message, std::error_code ec = {})
 {
 	std::string detail;
 	if (ec)
-		detail = ". Error: " + ec.message();
+		detail = ". Error: " + ec.message() + ".";
 
-	std::cerr << message << detail << ".\n";
+	std::cerr << message << detail << '\n';
 
 	return EXIT_FAILURE;
 }
