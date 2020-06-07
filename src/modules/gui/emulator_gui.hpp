@@ -108,6 +108,8 @@ namespace naive_gbe
 
 		void render_texture(SDL_Texture* texture, SDL_Rect* src = nullptr, SDL_Rect* dst = nullptr);
 
+		float get_fps() const;
+
 		emulator		emulator_;
 		keymap			keymap_;
 		std::string		assets_dir_;
@@ -119,7 +121,7 @@ namespace naive_gbe
 		std::uint16_t	height_			= 0;
 		SDL_Window*		window_			= nullptr;
 		SDL_Renderer*	renderer_		= nullptr;
-		SDL_Texture*	vram_		= nullptr;
+		SDL_Texture*	vram_			= nullptr;
 		TTF_Font*		font_			= nullptr;
 		SDL_DisplayMode display_		= {};
 		scale_mode		scale_mode_		= scale_mode::SCALED_4x;

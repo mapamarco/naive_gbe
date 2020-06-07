@@ -464,6 +464,8 @@ namespace naive_gbe
 			SDL_RenderFillRect(renderer_, &rect);
 		}
 
+		render_text(0, 0, std::to_string(get_fps()));
+
 		SDL_RenderPresent(renderer_);
 	}
 
@@ -517,5 +519,27 @@ namespace naive_gbe
 	{
 		if (SDL_RenderCopy(renderer_, texture, src, dst) == -1)
 			throw_sdl_error("Could not render texture");
+	}
+
+	float emulator_gui::get_fps() const
+	{
+		using namespace std::chrono;
+		static auto last = high_resolution_clock::now();
+		static std::size_t frames = 0;
+		static float fps_rate = 0.0;
+
+		auto now = high_resolution_clock::now();
+		auto elapsed = duration_cast<milliseconds>(now - last).count();
+
+		frames++;
+
+		if (elapsed >= 100)
+		{
+			fps_rate = frames * 1000.0f / elapsed;
+			last = now;
+			frames = 0;
+		}
+
+		return fps_rate;
 	}
 }
