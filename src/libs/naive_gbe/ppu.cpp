@@ -10,14 +10,12 @@
 
 namespace naive_gbe
 {
-
 	ppu::ppu(mmu& mmu)
 		: mmu_(mmu)
 	{
-		auto [width, height] = get_screen_size();
-		std::size_t num_pixesl = width * height;
+		auto screen = get_screen();
 
-		vram_.assign(num_pixesl, 0);
+		vram_.assign(screen.width * screen.height, 0);
 	}
 
 	void ppu::write_to_video_ram()
@@ -34,8 +32,13 @@ namespace naive_gbe
 		return vram_;
 	}
 
-	ppu::screen_size ppu::get_screen_size() const
+	ppu::rect ppu::get_window() const
 	{
-		return { 160, 144 };
+		return rect{ static_cast<std::uint16_t>(mmu_[registers::WX] + 7), mmu_[registers::WY], 160, 144 };
+	}
+
+	ppu::rect ppu::get_screen() const
+	{
+		return rect{ 0, 0, 256, 256 };
 	}
 }

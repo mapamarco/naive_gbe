@@ -25,6 +25,16 @@ namespace naive_gbe
 	void emulator_gui::run()
 	{
 		init_sdl();
+		create_vram();
+		load_icon();
+		load_font();
+		set_scale(scale_mode::SCALED_4x);
+
+		if (state_ == state::READY)
+		{
+			SDL_ShowCursor(SDL_DISABLE);
+			state_ = state::PLAYING;
+		}
 
 		while (state_ != state::FINISHED)
 		{
@@ -36,7 +46,12 @@ namespace naive_gbe
 
 	bool emulator_gui::load_rom(std::string const& rom_path, std::error_code& ec)
 	{
-		return emulator_.load_rom(rom_path, ec);
+		if (!emulator_.load_rom(rom_path, ec))
+			return false;
+
+		state_ = state::READY;
+
+		return true;
 	}
 
 	void emulator_gui::set_window_size(std::uint16_t width, std::uint16_t height)
@@ -44,32 +59,31 @@ namespace naive_gbe
 		SDL_SetWindowSize(window_, width, height);
 		SDL_SetWindowPosition(window_, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
-		width_  = width;
+		width_ = width;
 		height_ = height;
 	}
 
 	void emulator_gui::set_scale(scale_mode mode)
 	{
-		auto [width, height] = emulator_.get_ppu().get_screen_size();
-
-		if (scale_mode_ == scale_mode::FULLSCREEN && mode != scale_mode::FULLSCREEN)
-		{
-			toggle_fullscreen();
-		}
+		auto window = emulator_.get_ppu().get_window();
 
 		switch (mode)
 		{
 		case scale_mode::NO_SCALING:
-			set_window_size(width, height);
+			set_window_size(window.width, window.height);
+			scale_mode_ = mode;
 			break;
 		case scale_mode::SCALED_2x:
-			set_window_size(width * 2, height * 2);
+			set_window_size(window.width * 2, window.height * 2);
+			scale_mode_ = mode;
 			break;
 		case scale_mode::SCALED_3x:
-			set_window_size(width * 3, height * 3);
+			set_window_size(window.width * 3, window.height * 3);
+			scale_mode_ = mode;
 			break;
 		case scale_mode::SCALED_4x:
-			set_window_size(width * 4, height * 4);
+			set_window_size(window.width * 4, window.height * 4);
+			scale_mode_ = mode;
 			break;
 		case scale_mode::FULLSCREEN:
 			toggle_fullscreen();
@@ -79,50 +93,28 @@ namespace naive_gbe
 		default:
 			break;
 		}
-
-		scale_mode_ = mode;
 	}
 
 	void emulator_gui::init_sdl()
 	{
 		if (SDL_Init(SDL_INIT_VIDEO) < 0)
-		{
-			std::stringstream err;
-			err << "Could not initialise SDL2. Error: " << SDL_GetError();
-			throw std::runtime_error(err.str());
-		}
+			throw_sdl_error("Could not initialise SDL2");
 
 		if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG))
-		{
-			std::stringstream err;
-			err << "Could not initialise SDL2_image. Error: " << IMG_GetError();
-			throw std::runtime_error(err.str());
-		}
+			throw_img_error("Could not initialise SDL2_image");
 
 		if (Mix_OpenAudio(
 			MIX_DEFAULT_FREQUENCY,
 			MIX_DEFAULT_FORMAT,
 			MIX_DEFAULT_CHANNELS, 4096) == -1)
-		{
-			std::stringstream err;
-			err << "Could not initialise SDL2_mixer: Error " << Mix_GetError();
-			throw std::runtime_error(err.str());
-		}
+			throw_mix_error("Could not initialise SDL2_mixer");
 
 		int flags = MIX_INIT_FLAC | MIX_INIT_MP3 | MIX_INIT_MID | MIX_INIT_MOD;
 		if (Mix_Init(flags) != flags)
-		{
-			std::stringstream err;
-			err << "Could not initialise SDL2_mixer: Error: " << Mix_GetError();
-			throw std::runtime_error(err.str());
-		}
+			throw_mix_error("Could not initialise SDL2_mixer");
 
 		if (TTF_Init() == -1)
-		{
-			std::stringstream err;
-			err << "Could not initialise SDL2_ttf: Error: " << TTF_GetError();
-			throw std::runtime_error(err.str());
-		}
+			throw_ttf_error("Could not initialise SDL2_ttf");
 
 		std::string title = app_name_ + " " + app_version_;
 		window_ = SDL_CreateWindow(
@@ -134,11 +126,7 @@ namespace naive_gbe
 			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
 		if (!window_)
-		{
-			std::stringstream err;
-			err << "Window could not be created! SDL Error: " << SDL_GetError();
-			throw std::runtime_error(err.str());
-		}
+			throw_sdl_error("Could not create window");
 
 		renderer_ = SDL_CreateRenderer(
 			window_,
@@ -146,19 +134,10 @@ namespace naive_gbe
 			SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
 		if (!renderer_)
-		{
-			std::stringstream err;
-			err << "Renderer could not be created! SDL Error: " << SDL_GetError();
-			throw std::runtime_error(err.str());
-		}
+			throw_sdl_error("Could not create renderer");
 
-		SDL_ShowCursor(SDL_DISABLE);
-
-		create_pallete();
-		create_vram();
-		load_icon();
-		load_font();
-		set_scale(scale_mode_);
+		if (SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND))
+			throw_sdl_error("Could not set blender mode");
 	}
 
 	void emulator_gui::deinit_sdl()
@@ -195,11 +174,7 @@ namespace naive_gbe
 	{
 		SDL_PixelFormat* format = SDL_AllocFormat(SDL_PIXELFORMAT_RGBA32);
 		if (!format)
-		{
-			std::stringstream err;
-			err << "Could not allocate format. Error: " << SDL_GetError();
-			throw std::runtime_error(err.str());
-		}
+			throw_sdl_error("Could not allocate format");
 
 		pallete_ =
 		{
@@ -214,15 +189,17 @@ namespace naive_gbe
 
 	void emulator_gui::create_vram()
 	{
-		auto [width, height] = emulator_.get_ppu().get_screen_size();
+		auto window = emulator_.get_ppu().get_window();
+
+		create_pallete();
 
 		vram_ =
 			SDL_CreateTexture(
 				renderer_,
 				SDL_PIXELFORMAT_RGBA32,
 				SDL_TEXTUREACCESS_STREAMING,
-				width,
-				height);
+				window.width,
+				window.height);
 	}
 
 	void emulator_gui::update_vram()
@@ -235,9 +212,23 @@ namespace naive_gbe
 
 		SDL_LockTexture(vram_, nullptr, reinterpret_cast<void**>(&pixels), &pitch);
 
-		auto vram = emulator_.get_ppu().get_video_ram();
-		for (auto pixel : vram)
-			*pixels++ = pallete_[pixel];
+		auto ppu = emulator_.get_ppu();
+		auto vram = ppu.get_video_ram();
+
+		auto screen = ppu.get_screen();
+		auto window = ppu.get_window();
+
+		std::size_t total = 0;
+		for (auto row = 0; row < window.height; ++row)
+		{
+			std::size_t offset = window.x_pos + (row + window.y_pos) * screen.width;
+
+			for (auto col = 0; col < window.width; ++col)
+			{
+				*pixels++ = pallete_[vram[offset + col]];
+				total++;
+			}
+		}
 
 		SDL_UnlockTexture(vram_);
 	}
@@ -251,18 +242,13 @@ namespace naive_gbe
 		}
 	}
 
-
 	void emulator_gui::load_icon()
 	{
 		std::string icon_path = assets_dir_ + "/app.ico";
 		SDL_Surface* surface = IMG_Load(icon_path.c_str());
 
 		if (!surface)
-		{
-			std::stringstream err;
-			err << "Unable to load icon " << icon_path <<  ". Error: " << SDL_GetError();
-			throw std::runtime_error(err.str());
-		}
+			throw_sdl_error("Unable to load icon '" + icon_path + "'");
 
 		SDL_SetWindowIcon(window_, surface);
 		SDL_FreeSurface(surface);
@@ -271,38 +257,49 @@ namespace naive_gbe
 	void emulator_gui::load_font()
 	{
 		std::string font_path = assets_dir_ + "/JetBrainsMono-Bold.ttf";
-		font_ = TTF_OpenFont(font_path.c_str(), static_cast<int>(24));
+		font_ = TTF_OpenFont(font_path.c_str(), 36);
 
 		if (!font_)
-		{
-			std::stringstream err;
-			err << "Failed to load font '" << font_path << "'. Error: " << TTF_GetError();
-			throw std::runtime_error(err.str());
-		}
+			throw_ttf_error("Failed to load font '" + font_path + "'");
+	}
+
+	bool emulator_gui::is_fullscreen()
+	{
+		return SDL_GetWindowFlags(window_) & SDL_WINDOW_FULLSCREEN_DESKTOP;
+	}
+
+	void emulator_gui::throw_sdl_error(std::string const& description)
+	{
+		throw std::runtime_error(description + ". Error: " + SDL_GetError());
+	}
+
+	void emulator_gui::throw_mix_error(std::string const& description)
+	{
+		throw std::runtime_error(description + ". Error: " + Mix_GetError());
+	}
+
+	void emulator_gui::throw_img_error(std::string const& description)
+	{
+		throw std::runtime_error(description + ". Error: " + IMG_GetError());
+	}
+
+	void emulator_gui::throw_ttf_error(std::string const& description)
+	{
+		throw std::runtime_error(description + ". Error: " + TTF_GetError());
 	}
 
 	void emulator_gui::toggle_fullscreen()
 	{
-		std::uint32_t flags = SDL_GetWindowFlags(window_);
+		std::uint32_t flags = 0;
 
-		if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP)
-			flags = 0;
-		else
+		if (!is_fullscreen())
 			flags = SDL_WINDOW_FULLSCREEN_DESKTOP;
 
 		if (SDL_SetWindowFullscreen(window_, flags) < 0)
-		{
-			std::stringstream err;
-			err << "Unable to set fullscreen. Error: " << SDL_GetError();
-			throw std::runtime_error(err.str());
-		}
+			throw_sdl_error("Unable to set fullscreen");
 
-		if (SDL_GetWindowDisplayMode(window_, &display_) < 0)
-		{
-			std::stringstream err;
-			err << "Unable to get display information! Error: " << SDL_GetError();
-			throw std::runtime_error(err.str());
-		}
+		if (!flags)
+			set_scale(scale_mode_);
 	}
 
 	emulator_gui::keymap emulator_gui::get_default_keymap() const
@@ -318,7 +315,7 @@ namespace naive_gbe
 		keys[SDLK_UP] = input::UP;
 		keys[SDLK_DOWN] = input::DOWN;
 		keys[SDLK_LEFT] = input::LEFT;
-		keys[SDLK_RIGHT]= input::RIGHT;
+		keys[SDLK_RIGHT] = input::RIGHT;
 
 		return keys;
 	}
@@ -333,7 +330,21 @@ namespace naive_gbe
 				state_ = state::FINISHED;
 				break;
 			}
-			
+
+			if (event.type == SDL_DROPFILE)
+			{
+				std::error_code ec;
+				std::string rom_path = event.drop.file;
+
+				if (!emulator_.load_rom(rom_path, ec))
+					throw std::system_error(ec);
+
+				SDL_ShowCursor(SDL_DISABLE);
+				state_ = state::PLAYING;
+
+				break;
+			}
+
 			if (event.type == SDL_KEYDOWN)
 			{
 				if (event.key.keysym.sym == SDLK_ESCAPE
@@ -341,6 +352,21 @@ namespace naive_gbe
 				{
 					state_ = state::FINISHED;
 					break;
+				}
+
+				if (event.key.keysym.sym == SDLK_p)
+				{
+					if (state_ == state::PAUSED)
+					{
+						SDL_ShowCursor(SDL_DISABLE);
+						state_ = state::PLAYING;
+					}
+					else
+					{
+						SDL_ShowCursor(SDL_ENABLE);
+						state_ = state::PAUSED;
+					}
+					continue;
 				}
 
 				if (event.key.keysym.sym == SDLK_f)
@@ -370,6 +396,12 @@ namespace naive_gbe
 				if (event.key.keysym.sym == SDLK_6)
 				{
 					set_scale(scale_mode::SCALED_4x);
+					continue;
+				}
+
+				if (event.key.keysym.sym == SDLK_6)
+				{
+					stretch_ = !stretch_;
 					continue;
 				}
 
@@ -405,22 +437,85 @@ namespace naive_gbe
 
 	void emulator_gui::process_emulation()
 	{
-		num_steps_ += emulator_.run();
+		if (state_ == state::PLAYING)
+			num_steps_ += emulator_.run();
 	}
 
 	void emulator_gui::process_output()
 	{
+		SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
+
 		SDL_RenderClear(renderer_);
 
-		update_vram();
+		int width, height;
+		SDL_GetWindowSize(window_, &width, &height);
 
-		if (SDL_RenderCopy(renderer_, vram_, nullptr, nullptr) == -1)
+		if (state_ == state::PLAYING)
 		{
-			std::stringstream err;
-			err << "render copy error: " << SDL_GetError();
-			throw std::runtime_error(err.str());
+			update_vram();
+			render_display();
+		}
+		else if (state_ == state::PAUSED)
+		{
+			SDL_Rect rect{ 0, 0, width, height };
+
+			render_display();
+			SDL_SetRenderDrawColor(renderer_, 0, 0, 128, 128);
+			SDL_RenderFillRect(renderer_, &rect);
 		}
 
 		SDL_RenderPresent(renderer_);
+	}
+
+	void emulator_gui::render_display()
+	{
+		int width, height;
+		SDL_GetWindowSize(window_, &width, &height);
+
+		auto window = emulator_.get_ppu().get_window();
+
+		int max_width = width / window.width;
+		int max_height = height / window.height;
+		int factor = std::min(max_width, max_height);
+
+		SDL_Rect src{ 0, 0, window.width, window.height };
+
+		int w = window.width * factor;
+		int h = window.height * factor;
+		SDL_Rect dst{ (width - w) / 2, (height - h) / 2, w, h };
+
+		render_texture(vram_, &src, stretch_ ? nullptr : &dst);
+	}
+
+	void emulator_gui::render_text(std::uint16_t x, std::uint16_t y, std::string const& text)
+	{
+		SDL_Surface* surface = TTF_RenderText_Solid(font_, text.c_str(), SDL_Color{ 0, 0, 255, 0 });
+
+		if (!surface)
+			throw_sdl_error("Could not render text '" + text + "'");
+
+		SDL_Rect src = { 0, 0, surface->w, surface->h };
+		SDL_Rect dst = { x, y, surface->w, surface->h };
+
+		SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer_, surface);
+
+		if (!texture)
+		{
+			SDL_FreeSurface(surface);
+
+			throw_sdl_error("Could not create texture for text '" + text + "'");
+		}
+
+		SDL_FreeSurface(surface);
+
+		render_texture(texture, &src, &dst);
+
+		SDL_DestroyTexture(texture);
+	}
+
+	void emulator_gui::render_texture(SDL_Texture* texture, SDL_Rect* src, SDL_Rect* dst)
+	{
+		if (SDL_RenderCopy(renderer_, texture, src, dst) == -1)
+			throw_sdl_error("Could not render texture");
 	}
 }

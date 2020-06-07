@@ -69,9 +69,9 @@ All dependencies should be resolved automatically by the package manager NuGet.
 ### Assets
 Icons made by [Freepik](https://www.flaticon.com/authors/freepik) from [Flaticon](https://www.flaticon.com/)
 
-Menu sound [cabled_mess](https://freesound.org/people/cabled_mess/) from [Freesound](https://freesound.org/people/cabled_mess/sounds/350859/)
+Menu sound made by [cabled_mess](https://freesound.org/people/cabled_mess/) from [Freesound](https://freesound.org/people/cabled_mess/sounds/350859/)
 
-Font [Philipp Nurullin](https://www.fontsquirrel.com/fonts/list/foundry/philipp-nurullin) from [Fontsquirrel](https://www.fontsquirrel.com/fonts/jetbrains-mono/)
+Font made by [Philipp Nurullin](https://www.fontsquirrel.com/fonts/list/foundry/philipp-nurullin) from [Fontsquirrel](https://www.fontsquirrel.com/fonts/jetbrains-mono/)
 
 ### References
 http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf
@@ -81,5 +81,7 @@ https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
 http://gameboy.mongenel.com/dmg/asmmemmap.html
 
 https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM
+
+https://gbdev.gg8.se/wiki/articles/Video_Display
 
 https://realboyemulator.wordpress.com

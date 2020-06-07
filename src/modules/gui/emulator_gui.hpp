@@ -82,6 +82,16 @@ namespace naive_gbe
 
 		void load_font();
 
+		bool is_fullscreen();
+
+		void throw_sdl_error(std::string const& description);
+
+		void throw_mix_error(std::string const& description);
+
+		void throw_img_error(std::string const& description);
+
+		void throw_ttf_error(std::string const& description);
+
 		void toggle_fullscreen();
 
 		keymap get_default_keymap() const;
@@ -91,6 +101,12 @@ namespace naive_gbe
 		void process_emulation();
 
 		void process_output();
+
+		void render_display();
+
+		void render_text(std::uint16_t x, std::uint16_t y, std::string const& text);
+
+		void render_texture(SDL_Texture* texture, SDL_Rect* src = nullptr, SDL_Rect* dst = nullptr);
 
 		emulator		emulator_;
 		keymap			keymap_;
@@ -108,5 +124,6 @@ namespace naive_gbe
 		SDL_DisplayMode display_		= {};
 		scale_mode		scale_mode_		= scale_mode::SCALED_4x;
 		pallete			pallete_		= {};
+		bool			stretch_		= false;
 	};
 }
