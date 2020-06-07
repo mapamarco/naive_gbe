@@ -35,7 +35,7 @@ TEST(performance, bootstrap)
 	{
 		cpu.reset();
 
-		while (cpu.get_state() != lr35902::state::stopped)
+		while (cpu.get_state() != lr35902::state::STOPPED)
 		{
 			cpu.step();
 			++num_steps;

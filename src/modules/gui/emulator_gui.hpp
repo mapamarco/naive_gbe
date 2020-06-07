@@ -29,6 +29,16 @@ namespace naive_gbe
 	{
 	public:
 
+		enum class scale_mode
+		{
+			NO_SCALING,
+			SCALED_2x,
+			SCALED_3x,
+			SCALED_4x,
+			FULLSCREEN,
+			CUSTOM
+		};
+
 		enum class state
 		{
 			NO_CARTRIDGE,
@@ -49,15 +59,26 @@ namespace naive_gbe
 
 	private:
 
-		using keymap = std::unordered_map<SDL_Keycode, emulator::joypad_input>;
+		using keymap	= std::unordered_map<SDL_Keycode, emulator::joypad_input>;
+		using pallete	= std::unordered_map<std::uint8_t, std::uint32_t>;
 
 		void set_window_size(std::uint16_t width, std::uint16_t height);
+
+		void set_scale(scale_mode mode);
 
 		void init_sdl();
 
 		void deinit_sdl();
 
-		void set_icon();
+		void create_pallete();
+
+		void create_vram();
+
+		void update_vram();
+
+		void destroy_vram();
+
+		void load_icon();
 
 		void load_font();
 
@@ -82,7 +103,10 @@ namespace naive_gbe
 		std::uint16_t	height_			= 0;
 		SDL_Window*		window_			= nullptr;
 		SDL_Renderer*	renderer_		= nullptr;
+		SDL_Texture*	vram_		= nullptr;
 		TTF_Font*		font_			= nullptr;
 		SDL_DisplayMode display_		= {};
+		scale_mode		scale_mode_		= scale_mode::SCALED_4x;
+		pallete			pallete_		= {};
 	};
 }

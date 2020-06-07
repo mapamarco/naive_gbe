@@ -9,7 +9,8 @@
 namespace naive_gbe
 {
 	emulator::emulator()
-		: cpu_{ mmu_ }
+		: ppu_{ mmu_ }
+		, cpu_{ mmu_, ppu_ }
 		, disasm_{ mmu_ }
 		, state_{ state::NO_CARTRIDGE }
 	{
@@ -55,6 +56,11 @@ namespace naive_gbe
 		return mmu_;
 	}
 
+	ppu const& emulator::get_ppu() const
+	{
+		return ppu_;
+	}
+
 	std::size_t emulator::run()
 	{
 		if (state_ == state::NO_CARTRIDGE)
@@ -71,7 +77,7 @@ namespace naive_gbe
 			auto elapsed_us = duration_cast<microseconds>(now - last_run_).count();
 
 			if (elapsed_us)
-				last_cycle += (lr35902::frequencies::nominal * 1000) / elapsed_us;
+				last_cycle += (lr35902::frequencies::NOMINAL * 1000) / elapsed_us;
 		}
 		else
 		{
@@ -83,6 +89,8 @@ namespace naive_gbe
 			cpu_.step();
 			++num_steps;
 		}
+
+		ppu_.write_to_video_ram();
 
 		last_run_ = high_resolution_clock::now();
 

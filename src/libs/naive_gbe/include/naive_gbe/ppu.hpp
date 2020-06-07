@@ -6,6 +6,9 @@
 //
 #pragma once
 
+#include <vector>
+#include <cstdint>
+
 #include <naive_gbe/mmu.hpp>
 
 namespace naive_gbe
@@ -14,13 +17,20 @@ namespace naive_gbe
 	{
 	public:
 
-		ppu(mmu& mmu) :
-			mmu_(mmu)
-		{
-		}
+		using screen_size	= std::pair<std::uint8_t, std::uint8_t>;
+		using video_ram		= std::vector<std::uint8_t>;
+
+		ppu(mmu& mmu);
+
+		void write_to_video_ram();
+
+		screen_size get_screen_size() const;
+
+		video_ram const& get_video_ram() const;
 
 	private:
 
 		mmu&			mmu_;
+		video_ram		vram_;
 	};
 }

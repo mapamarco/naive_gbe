@@ -13,6 +13,7 @@
 #include <naive_gbe/misc.hpp>
 #include <naive_gbe/mmu.hpp>
 #include <naive_gbe/cpu.hpp>
+#include <naive_gbe/ppu.hpp>
 #include <naive_gbe/cartridge.hpp>
 #include <naive_gbe/disassembler.hpp>
 
@@ -21,9 +22,6 @@ namespace naive_gbe
 	class emulator
 	{
 	public:
-
-		static const std::size_t SCREEN_WIDTH	= 160;
-		static const std::size_t SCREEN_HEIGHT	= 144;
 
 		enum class state : std::uint8_t
 		{
@@ -59,6 +57,8 @@ namespace naive_gbe
 
 		mmu const& get_mmu() const;
 
+		ppu const& get_ppu() const;
+
 		std::size_t run();
 
 		std::string disassembly();
@@ -70,6 +70,7 @@ namespace naive_gbe
 		state			state_		= state::NO_CARTRIDGE;
 		time_point		last_run_;
 		mmu				mmu_;
+		ppu				ppu_;
 		lr35902			cpu_;
 		disassembler	disasm_;
 	};
