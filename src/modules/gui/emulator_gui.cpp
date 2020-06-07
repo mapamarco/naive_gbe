@@ -88,10 +88,11 @@ namespace naive_gbe
 			throw std::runtime_error(err.str());
 		}
 
+		std::string title = app_name_ + " " + app_version_;
 		window_ = SDL_CreateWindow(
-			"Naive Game Boy",
-			SDL_WINDOWPOS_UNDEFINED,
-			SDL_WINDOWPOS_UNDEFINED,
+			title.c_str(),
+			SDL_WINDOWPOS_CENTERED,
+			SDL_WINDOWPOS_CENTERED,
 			width_,
 			height_,
 			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
@@ -153,7 +154,7 @@ namespace naive_gbe
 
 	void emulator_gui::set_icon()
 	{
-		std::string icon_path = assets_dir_ + "/icon.png";
+		std::string icon_path = assets_dir_ + "/app.ico";
 		SDL_Surface* surface = IMG_Load(icon_path.c_str());
 
 		if (!surface)

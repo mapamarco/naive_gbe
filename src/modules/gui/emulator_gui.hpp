@@ -13,6 +13,7 @@
 	#include <SDL_mixer.h>
 	#include <SDL_ttf.h>
 	#include <SDL_image.h>
+	#include "../../../msvc/2019/naive_gbe/emulator/resource.h"
 #else
 	#include <SDL2/SDL.h>
 	#include <SDL2/SDL_mixer.h>
@@ -73,13 +74,15 @@ namespace naive_gbe
 		emulator		emulator_;
 		keymap			keymap_;
 		std::string		assets_dir_;
-		std::size_t		num_steps_	= 0;
-		state			state_		= state::NO_CARTRIDGE;
-		std::uint16_t	width_		= 0;
-		std::uint16_t	height_		= 0;
-		SDL_Window*		window_		= nullptr;
-		SDL_Renderer*	renderer_	= nullptr;
-		TTF_Font*		font_		= nullptr;
-		SDL_DisplayMode display_	= {};
+		std::string		app_name_		= "naive_gbe";
+		std::string		app_version_	= "0.0.1";
+		std::size_t		num_steps_		= 0;
+		state			state_			= state::NO_CARTRIDGE;
+		std::uint16_t	width_			= 0;
+		std::uint16_t	height_			= 0;
+		SDL_Window*		window_			= nullptr;
+		SDL_Renderer*	renderer_		= nullptr;
+		TTF_Font*		font_			= nullptr;
+		SDL_DisplayMode display_		= {};
 	};
 }
