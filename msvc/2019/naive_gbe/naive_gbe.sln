@@ -21,6 +21,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "emulator", "emulator\emulator.vcxproj", "{9A7C46E2-E28E-4887-9440-6D5B4BCE9BA3}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "naive_2dge", "naive_2dge\naive_2dge.vcxproj", "{FFA57BF3-436F-4187-BA90-1F1D973E1466}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -53,6 +55,14 @@ Global
 		{9A7C46E2-E28E-4887-9440-6D5B4BCE9BA3}.Release|x64.Build.0 = Release|x64
 		{9A7C46E2-E28E-4887-9440-6D5B4BCE9BA3}.Release|x86.ActiveCfg = Release|Win32
 		{9A7C46E2-E28E-4887-9440-6D5B4BCE9BA3}.Release|x86.Build.0 = Release|Win32
+		{FFA57BF3-436F-4187-BA90-1F1D973E1466}.Debug|x64.ActiveCfg = Debug|x64
+		{FFA57BF3-436F-4187-BA90-1F1D973E1466}.Debug|x64.Build.0 = Debug|x64
+		{FFA57BF3-436F-4187-BA90-1F1D973E1466}.Debug|x86.ActiveCfg = Debug|Win32
+		{FFA57BF3-436F-4187-BA90-1F1D973E1466}.Debug|x86.Build.0 = Debug|Win32
+		{FFA57BF3-436F-4187-BA90-1F1D973E1466}.Release|x64.ActiveCfg = Release|x64
+		{FFA57BF3-436F-4187-BA90-1F1D973E1466}.Release|x64.Build.0 = Release|x64
+		{FFA57BF3-436F-4187-BA90-1F1D973E1466}.Release|x86.ActiveCfg = Release|Win32
+		{FFA57BF3-436F-4187-BA90-1F1D973E1466}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -12,6 +12,7 @@ aux_source_directory(
 	SRC_LIST)
 
 include_directories(
+	../../libs/naive_2dge/include
 	../../libs/naive_gbe/include)
 
 find_package(SDL2 REQUIRED)
@@ -29,6 +30,7 @@ add_executable(
 target_link_libraries(
 	${PROJECT_NAME}
 	naive_gbe
+	naive_2dge
 	${SDL2_LIBRARIES}
     ${SDL2_IMG_LIBRARIES}
     ${SDL2_TTF_LIBRARIES}

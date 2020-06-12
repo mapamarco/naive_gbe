@@ -14,8 +14,9 @@ include(gtest.cmake)
 enable_testing()
 
 add_subdirectory(test)
-add_subdirectory(src/modules/gui)
 add_subdirectory(src/libs/naive_gbe)
+add_subdirectory(src/libs/naive_2dge)
+add_subdirectory(src/modules/gui)
 
 find_package(Doxygen)
 

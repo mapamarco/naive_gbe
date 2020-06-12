@@ -15,59 +15,61 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\..\src\modules\gui\main.cpp">
+    <ClCompile Include="..\..\..\..\src\libs\naive_2dge\engine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\src\modules\gui\state_emulating.cpp">
+    <ClCompile Include="..\..\..\..\src\libs\naive_2dge\font.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\src\modules\gui\state_base.cpp">
+    <ClCompile Include="..\..\..\..\src\libs\naive_2dge\fps_counter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\src\modules\gui\state_help.cpp">
+    <ClCompile Include="..\..\..\..\src\libs\naive_2dge\image.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\src\modules\gui\state_no_cartridge.cpp">
+    <ClCompile Include="..\..\..\..\src\libs\naive_2dge\render_task.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\src\modules\gui\emulator_app.cpp">
+    <ClCompile Include="..\..\..\..\src\libs\naive_2dge\game.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\src\libs\naive_2dge\texture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\src\libs\naive_2dge\state.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="resource.h">
+    <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\engine.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\..\src\modules\gui\state_emulating.hpp">
+    <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\font.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\..\src\modules\gui\state_base.hpp">
+    <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\fps_counter.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\..\src\modules\gui\state_help.hpp">
+    <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\image.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\..\src\modules\gui\state_no_cartridge.hpp">
+    <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\render_task.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\..\src\modules\gui\config.hpp">
+    <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\state.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\..\src\modules\gui\emulator_app.hpp">
+    <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\detail\sdl.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\game.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\texture.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="emulator.rc">
-      <Filter>Resource Files</Filter>
-    </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="..\..\..\..\assets\app.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
   </ItemGroup>
 </Project>

@@ -9,8 +9,7 @@
 #include <fstream>
 #include <string>
 
-#include "emulator_gui.hpp"
-using namespace naive_gbe;
+#include "emulator_app.hpp"
 
 std::pair<std::string, std::string> split_path(std::string const& path)
 {
@@ -43,14 +42,14 @@ int main(int argc, char** argv)
 
 	try
 	{
-		emulator_gui emu{ assets_path };
+		emulator_app emulator{ assets_path };
 
 		if (argc == 2)
 		{
 			std::error_code ec;
 			std::string rom_path = argv[1];
 
-			if (!emu.load_rom(rom_path, ec))
+			if (!emulator.load_rom(rom_path, ec))
 			{
 				std::string erro_msg = "Could not load rom file: " + rom_path;
 
@@ -58,7 +57,7 @@ int main(int argc, char** argv)
 			}
 		}
 
-		emu.run();
+		return emulator.run();
 	}
 	catch (std::exception& e)
 	{
