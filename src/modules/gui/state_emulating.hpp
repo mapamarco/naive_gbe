@@ -8,51 +8,54 @@
 
 #include "state_base.hpp"
 
-namespace naive_gbe
+class state_emulating
+	: public state_base
 {
-	class state_emulating
-		: public base_state
+public:
+
+	state_emulating(naive_2dge::engine& engine, naive_gbe::emulator& emulator);
+
+	void on_create() override;
+
+	void on_enter(std::size_t prev_state) override;
+
+	void on_update() override;
+
+private:
+
+	using keymap = std::unordered_map<SDL_Keycode, naive_gbe::emulator::joypad_input>;
+
+	using pallete = std::unordered_map<std::uint8_t, std::uint32_t>;
+
+	enum class scale_mode
 	{
-	public:
-
-		state_emulating(naive_2dge::engine& engine, emulator& emulator);
-
-		void on_enter(std::size_t prev_state) override;
-
-		void on_update() override;
-
-		void on_exit() override;
-
-	private:
-
-		using keymap = std::unordered_map<SDL_Keycode, emulator::joypad_input>;
-
-		using pallete = std::unordered_map<std::uint8_t, std::uint32_t>;
-
-		enum class scale_mode
-		{
-			NO_SCALING,
-			SCALED_2x,
-			SCALED_3x,
-			SCALED_4x,
-		};
-
-		std::size_t on_key_down(SDL_Event const& event);
-
-		pallete create_pallete() const;
-
-		keymap get_default_keymap() const;
-
-		void set_scale(scale_mode mode);
-
-		void update_vram();
-
-		naive_2dge::font::ptr		font_		= nullptr;
-		naive_2dge::texture::ptr	vram_		= nullptr;
-		std::size_t					num_steps_	= 0;
-		bool						paused_		= false;
-		keymap						keymap_		= {};
-		pallete						pallete_	= {};
+		NO_SCALING,
+		SCALED_2X,
+		SCALED_3X,
+		SCALED_4X,
 	};
 
-}
+	std::size_t on_key_down(SDL_Event const& event);
+
+	void toggle_pause();
+
+	pallete create_pallete() const;
+
+	keymap get_default_keymap() const;
+
+	void set_scale(scale_mode mode);
+
+	void update_vram();
+
+	naive_2dge::font::ptr		font_		= nullptr;
+
+	naive_2dge::texture::ptr	vram_		= nullptr;
+
+	std::size_t					num_steps_	= 0;
+
+	bool						paused_		= false;
+
+	keymap						keymap_		= {};
+
+	pallete						pallete_	= {};
+};

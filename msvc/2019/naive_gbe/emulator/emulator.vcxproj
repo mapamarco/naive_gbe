@@ -162,7 +162,7 @@
     <ClCompile Include="..\..\..\..\src\modules\gui\state_base.cpp" />
     <ClCompile Include="..\..\..\..\src\modules\gui\state_help.cpp" />
     <ClCompile Include="..\..\..\..\src\modules\gui\main.cpp" />
-    <ClCompile Include="..\..\..\..\src\modules\gui\state_no_cartridge.cpp" />
+    <ClCompile Include="..\..\..\..\src\modules\gui\state_no_rom.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\src\modules\gui\config.hpp" />
@@ -170,7 +170,7 @@
     <ClInclude Include="..\..\..\..\src\modules\gui\emulator_app.hpp" />
     <ClInclude Include="..\..\..\..\src\modules\gui\state_base.hpp" />
     <ClInclude Include="..\..\..\..\src\modules\gui\state_help.hpp" />
-    <ClInclude Include="..\..\..\..\src\modules\gui\state_no_cartridge.hpp" />
+    <ClInclude Include="..\..\..\..\src\modules\gui\state_no_rom.hpp" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>

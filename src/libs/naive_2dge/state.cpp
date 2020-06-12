@@ -12,6 +12,10 @@ namespace naive_2dge
 	{
 	}
 
+	void state::on_create()
+	{
+	}
+
 	void state::on_enter(std::size_t next_state)
 	{
 	}
@@ -21,6 +25,10 @@ namespace naive_2dge
 	}
 
 	void state::on_exit()
+	{
+	}
+
+	void state::on_destroy()
 	{
 	}
 

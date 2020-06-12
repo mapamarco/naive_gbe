@@ -27,10 +27,10 @@
     <ClCompile Include="..\..\..\..\src\modules\gui\state_help.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\src\modules\gui\state_no_cartridge.cpp">
+    <ClCompile Include="..\..\..\..\src\modules\gui\emulator_app.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\src\modules\gui\emulator_app.cpp">
+    <ClCompile Include="..\..\..\..\src\modules\gui\state_no_rom.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -47,13 +47,13 @@
     <ClInclude Include="..\..\..\..\src\modules\gui\state_help.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\..\src\modules\gui\state_no_cartridge.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\..\src\modules\gui\config.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\..\src\modules\gui\emulator_app.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\src\modules\gui\state_no_rom.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

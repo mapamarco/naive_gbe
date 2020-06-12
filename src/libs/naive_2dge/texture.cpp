@@ -75,4 +75,21 @@ namespace naive_2dge
 		w = impl_->w_;
 		h = impl_->h_;
 	}
+
+	std::pair<std::uint16_t, std::uint16_t> texture::get_size() const
+	{
+		return { impl_->w_, impl_->h_ };
+	}
+
+	void texture::set_size(std::uint32_t w, std::uint32_t h)
+	{
+		impl_->w_ = w;
+		impl_->h_ = h;
+	}
+
+	void texture::set_position(std::uint32_t x, std::uint32_t y)
+	{
+		impl_->x_ = x;
+		impl_->y_ = y;
+	}
 }

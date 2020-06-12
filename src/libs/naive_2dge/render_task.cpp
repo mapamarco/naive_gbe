@@ -13,10 +13,13 @@ namespace naive_2dge
 	{
 		image::ptr      image_		= nullptr;
 		texture::ptr    texture_	= nullptr;
+		type			task_		= {};
 		std::uint32_t   x_			= 0;
 		std::uint32_t   y_			= 0;
 		std::uint32_t   w_			= 0;
 		std::uint32_t   h_			= 0;
+		bool			stretch_	= false;
+		colour			colour_		= { 0, 0, 0, 0 };
 	};
 
 	render_task::render_task() :
@@ -26,24 +29,29 @@ namespace naive_2dge
 
 	render_task::~render_task() = default;
 
-	image::ptr render_task::get_image()
+	void render_task::set_task(type task)
 	{
-		return impl_->image_;
+		impl_->task_ = task;
 	}
 
-	texture::ptr render_task::get_texture()
+	render_task::type render_task::get_task()
 	{
-		return impl_->texture_;
+		return impl_->task_;
 	}
 
-	void render_task::set_image(image::ptr image)
+	void render_task::set_colour(colour fill_colour)
 	{
-		impl_->image_ = image;
+		impl_->colour_ = fill_colour;
 	}
 
-	void render_task::set_texture(texture::ptr texture)
+	colour render_task::get_colour()
 	{
-		impl_->texture_ = texture;
+		return impl_->colour_;
+	}
+
+	void render_task::set_stretch(bool stretch)
+	{
+		impl_->stretch_ = stretch;
 	}
 
 	void render_task::set_position(std::uint32_t x, std::uint32_t y)
@@ -58,23 +66,15 @@ namespace naive_2dge
 		impl_->h_ = h;
 	}
 
-	void render_task::get_position(std::uint32_t & x, std::uint32_t & y) const
+	bool render_task::get_stretch() const
+	{
+		return impl_->stretch_;
+	}
+
+	void render_task::get_position(std::int32_t & x, std::int32_t & y) const
 	{
 		x = impl_->x_;
 		y = impl_->y_;
-	}
-
-	void render_task::get_size(std::uint32_t & w, std::uint32_t & h) const
-	{
-		if (impl_->image_)
-		{
-			impl_->image_->get_size(w, h);
-		}
-		else if (impl_->texture_)
-		{
-			w = impl_->w_;
-			h = impl_->h_;
-		}
 	}
 }
 

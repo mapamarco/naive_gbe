@@ -8,34 +8,58 @@
 
 #include <naive_2dge/state.hpp>
 #include <naive_2dge/engine.hpp>
+#include <naive_2dge/types.hpp>
 #include <naive_gbe/emulator.hpp>
 
-namespace naive_gbe
+class state_base
+	: public naive_2dge::state
 {
-	class base_state
-		: public naive_2dge::state
+public:
+
+	enum state
 	{
-	public:
-
-		enum state
-		{
-			NO_CARTRIDGE,
-			HELP,
-			EMULATING,
-		};
-
-		base_state(naive_2dge::engine& engine, emulator& emulator, std::size_t next_state);
-
-	protected:
-
-		std::size_t on_quit();
-
-		std::size_t on_key_down(SDL_Event const& event);
-
-		void throw_error(std::string const& description, std::string const& detail) const;
-
-		emulator&		emulator_;
-		std::size_t		state_;
-		std::size_t		next_state_;
+		NO_ROM		= 0,
+		HELP,
+		EMULATING,
 	};
-}
+
+	enum flags
+	{
+		STRETCH		= 1 << 0,
+		DEBUG		= 1 << 1,
+	};
+
+	state_base(naive_2dge::engine& engine, naive_gbe::emulator& emulator, std::size_t next_state);
+
+	virtual void on_create() override;
+
+	virtual void on_enter(std::size_t prev_state) override;
+
+	virtual void on_update() override;
+
+protected:
+
+	std::size_t on_quit();
+
+	std::size_t on_key_down(SDL_Event const& event);
+
+	void on_update_debug();
+
+	std::string fps_fmt(float fps);
+
+	std::string state_fmt(std::size_t state);
+
+	std::string reg_fmt(naive_gbe::lr35902::r16 reg);
+
+	void throw_error(std::string const& description, std::string const& detail) const;
+
+	naive_gbe::emulator&		emulator_;
+
+	naive_2dge::font::ptr		debug_fnt_;
+
+	std::size_t					prev_state_;
+
+	std::size_t					next_state_;
+
+	static std::uint32_t		flags_;
+};

@@ -37,8 +37,23 @@ namespace naive_gbe
 		return rect{ static_cast<std::uint16_t>(mmu_[registers::WX] + 7), mmu_[registers::WY], 160, 144 };
 	}
 
+	std::uint16_t ppu::get_screen_width() const
+	{
+		return 160;
+	}
+
+	std::uint16_t ppu::get_screen_height() const
+	{
+		return 144;
+	}
+
 	ppu::rect ppu::get_screen() const
 	{
 		return rect{ 0, 0, 256, 256 };
+	}
+
+	ppu::win_size ppu::get_window_size() const
+	{
+		return { 160, 144 };
 	}
 }

@@ -26,11 +26,15 @@ namespace naive_2dge
 
 		state(engine& engine);
 
+		virtual void on_create();
+
 		virtual void on_enter(std::size_t prev_state);
         
         virtual void on_update();
         
 		virtual void on_exit();
+
+		virtual void on_destroy();
 
 		void remove_event_handler(std::uint32_t event);
 
@@ -41,6 +45,7 @@ namespace naive_2dge
 	protected:
 
 		engine&			engine_;
+
 		handlers_map	handler_map_;
 	};
 }

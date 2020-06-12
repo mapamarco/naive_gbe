@@ -6,6 +6,7 @@
 //
 #include <naive_2dge/engine.hpp>
 #include <naive_2dge/render_task.hpp>
+#include <naive_2dge/fps_counter.hpp>
 #include <naive_2dge/detail/sdl.hpp>
 
 #include <sstream>
@@ -23,14 +24,10 @@ namespace naive_2dge
 		using task_list		= std::vector<render_task::ptr>;
 
 		bool                keep_running_	= true;
-		bool                debug_enabled_	= true;
 		int                 exit_code_		= EXIT_SUCCESS;
 		std::string         title_			= "unknown";
 		std::string         assets_dir_		= "";
-		uint16_t            width_			= 0;
-		uint16_t            height_			= 0;
-		uint16_t            curr_width_		= 0;
-		uint16_t            curr_height_	= 0;
+		fps_counter			fps_			= { 500 };
 		SDL_Window*			window_			= nullptr;
 		SDL_Renderer*		renderer_		= nullptr;
 		SDL_Event           event_;
@@ -42,7 +39,8 @@ namespace naive_2dge
 		void init_video();
 		void init_image();
 		void init_font();
-		void init_renderer(const std::string& title, uint32_t width, uint32_t height);
+		void create_window(const std::string& title, uint32_t width, uint32_t height);
+		void create_renderer();
 		void close_video();
 		void close_image();
 		void close_font();
@@ -72,11 +70,8 @@ namespace naive_2dge
 			throw_error("Could not initialise SDL2_ttf", TTF_GetError());
 	}
 
-	void engine::impl::init_renderer(const std::string& title, uint32_t width, uint32_t height)
+	void engine::impl::create_window(const std::string& title, uint32_t width, uint32_t height)
 	{
-		if (!SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1"))
-			throw_error("Linear texture filtering not enabled", SDL_GetError());
-
 		window_ = SDL_CreateWindow(
 			title.c_str(),
 			SDL_WINDOWPOS_CENTERED,
@@ -87,6 +82,12 @@ namespace naive_2dge
 
 		if (!window_)
 			throw_error("Could not create window", SDL_GetError());
+	}
+
+	void engine::impl::create_renderer()
+	{
+		//if (!SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1"))
+		//	throw_error("Linear texture filtering not enabled", SDL_GetError());
 
 		renderer_ = SDL_CreateRenderer(
 			window_,
@@ -97,9 +98,6 @@ namespace naive_2dge
 			throw_error("Could not create renderer", SDL_GetError());
 
 		if (SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND))
-			throw_error("Could not set blender mode", SDL_GetError());
-
-		if (SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 0))
 			throw_error("Could not set blender mode", SDL_GetError());
 	}
 
@@ -167,6 +165,15 @@ namespace naive_2dge
 		SDL_SetWindowPosition(impl_->window_, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 	}
 
+	std::pair<std::uint16_t, std::uint16_t> engine::get_window_size()
+	{
+		int width, height;
+
+		SDL_GetWindowSize(impl_->window_, &width, &height);
+
+		return { width, height };
+	}
+
 	bool engine::is_fullscreen()
 	{
 		return SDL_GetWindowFlags(impl_->window_) & SDL_WINDOW_FULLSCREEN_DESKTOP;
@@ -193,7 +200,8 @@ namespace naive_2dge
 		impl_->init_video();
 		impl_->init_image();
 		impl_->init_font();
-		impl_->init_renderer(title, width, height);
+		impl_->create_window(title, width, height);
+		impl_->create_renderer();
 	}
 
 	bool engine::keep_running()
@@ -203,32 +211,73 @@ namespace naive_2dge
 
 	void engine::render()
 	{
-		SDL_RenderClear(impl_->renderer_);
+		if (SDL_SetRenderDrawColor(impl_->renderer_, 0, 0, 0, 0))
+			throw_error("Could not set blender mode", SDL_GetError());
 
-		std::uint32_t x, y, w, h;
+		if (SDL_RenderClear(impl_->renderer_))
+			throw_error("Could not clear renderer", SDL_GetError());
+
+		std::int32_t x, y;
+		std::uint32_t w, h;
 		SDL_Texture* texture = nullptr;
 		image::ptr image = nullptr;
 
 		for (auto task : impl_->tasks_)
 		{
-			image = task->get_image();
-			texture = reinterpret_cast<SDL_Texture*>(image ? image->get_resource() : task->get_texture()->get_resource());
+			auto task2 = task->get_task();
+
+			if (std::holds_alternative<image::ptr>(task2))
+			{
+				auto resource = std::get<image::ptr>(task2);
+
+				resource->get_size(w, h);
+				texture = reinterpret_cast<SDL_Texture*>(resource->get_resource());
+			}
+			else if (std::holds_alternative<texture::ptr>(task2))
+			{
+				auto resource = std::get<texture::ptr>(task2);
+
+				resource->get_size(w, h);
+				texture = reinterpret_cast<SDL_Texture*>(resource->get_resource());
+			}
+			else if (std::holds_alternative<rectangle>(task2))
+			{
+				auto resource = std::get<rectangle>(task2);
+
+				SDL_Rect rect{ resource.x, resource.y, resource.w, resource.h };
+
+				auto c = task->get_colour();
+
+				if (SDL_SetRenderDrawColor(impl_->renderer_, c.r, c.g, c.b, c.a))
+					throw_error("Could not render rectangle", SDL_GetError());
+
+				if (SDL_RenderFillRect(impl_->renderer_, &rect))
+					throw_error("Could not render rectangle", SDL_GetError());
+
+				continue;
+			}
 
 			task->get_position(x, y);
-			task->get_size(w, h);
 
 			SDL_Rect src = { 0, 0, static_cast<int>(w), static_cast<int>(h) };
-			SDL_Rect dst = { static_cast<int>(x), static_cast<int>(y), static_cast<int>(w), static_cast<int>(h) };
 
-			if (SDL_RenderCopy(impl_->renderer_, texture, &src, &dst) == -1)
+			if (task->get_stretch())
 			{
-				std::stringstream err;
-				err << "render copy error: " << SDL_GetError();
-				throw std::runtime_error(err.str());
+				if (SDL_RenderCopy(impl_->renderer_, texture, &src, nullptr))
+					throw_error("Could not render texture", SDL_GetError());
+			}
+			else
+			{
+				SDL_Rect dst = { x, y, static_cast<int>(w), static_cast<int>(h) };
+
+				if (SDL_RenderCopy(impl_->renderer_, texture, &src, &dst))
+					throw_error("Could not render texture", SDL_GetError());
 			}
 		}
 
 		SDL_RenderPresent(impl_->renderer_);
+
+		++impl_->fps_;
 
 		impl_->tasks_.clear();
 	}
@@ -239,19 +288,14 @@ namespace naive_2dge
 		impl_->keep_running_ = false;
 	}
 
+	void engine::cancel_exit()
+	{
+		impl_->keep_running_ = true;
+	}
+
 	int engine::get_exit_code()
 	{
 		return impl_->exit_code_;
-	}
-
-	void engine::enable_debug(bool enabled)
-	{
-		impl_->debug_enabled_ = enabled;
-	}
-
-	bool engine::is_debug_enabled()
-	{
-		return impl_->debug_enabled_;
 	}
 
 	SDL_Event& engine::get_input()
@@ -259,40 +303,14 @@ namespace naive_2dge
 		return impl_->event_;
 	}
 
-	void engine::set_fullscreen(bool enabled, bool real)
+	float engine::get_fps() const
 	{
-		int flags = 0;
-
-		if (enabled)
-			flags = real ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_FULLSCREEN_DESKTOP;
-
-		if (SDL_SetWindowFullscreen(impl_->window_, flags) < 0)
-		{
-			std::stringstream err;
-			err << "unable to set fullscreen! SDL Error: " << SDL_GetError();
-			throw std::runtime_error(err.str());
-		}
-
-		SDL_DisplayMode display;
-		if (SDL_GetWindowDisplayMode(impl_->window_, &display) < 0)
-		{
-			std::stringstream err;
-			err << "unable to get display information! SDL Error: " << SDL_GetError();
-			throw std::runtime_error(err.str());
-		}
-
-		impl_->curr_width_ = display.w;
-		impl_->curr_height_ = display.h;
+		return impl_->fps_.get_fps();
 	}
 
-	uint32_t engine::get_screen_width() const
+	void engine::show_cursor(bool enabled) const
 	{
-		return impl_->curr_width_;
-	}
-
-	uint32_t engine::get_screen_height() const
-	{
-		return impl_->curr_height_;
+		SDL_ShowCursor(enabled ? SDL_ENABLE : SDL_DISABLE);
 	}
 
 	image::ptr engine::create_image(const std::string& name, const std::string& path)
@@ -323,6 +341,10 @@ namespace naive_2dge
 
 	font::ptr engine::create_font(const std::string& name, const std::string& path, std::size_t size)
 	{
+		auto it = impl_->fonts_.find(name);
+		if (it != std::end(impl_->fonts_))
+			return it->second;
+
 		auto resource = std::make_shared<font>();
 
 		if (resource)
@@ -349,22 +371,32 @@ namespace naive_2dge
 		return impl_->fonts_.at(name);
 	}
 
-	void engine::draw_image(image::ptr image, std::uint32_t x, std::uint32_t y)
+	void engine::draw(rectangle const& rect, colour colour)
 	{
 		auto task = std::make_unique<render_task>();
 
-		task->set_image(image);
+		task->set_task(rect);
+		task->set_colour(colour);
+		impl_->tasks_.push_back(std::move(task));
+	}
+
+	void engine::draw(image::ptr image, std::uint32_t x, std::uint32_t y)
+	{
+		auto task = std::make_unique<render_task>();
+
+		task->set_task(image);
 		task->set_position(x, y);
 
 		impl_->tasks_.push_back(std::move(task));
 	}
 
-	void engine::draw_texture(texture::ptr texture, std::uint32_t x, std::uint32_t y)
+	void engine::draw(texture::ptr texture, std::uint32_t x, std::uint32_t y, bool stretch)
 	{
 		auto task = std::make_unique<render_task>();
 
-		task->set_texture(texture);
+		task->set_task(texture);
 		task->set_position(x, y);
+		task->set_stretch(stretch);
 
 		impl_->tasks_.push_back(std::move(task));
 	}
@@ -388,7 +420,7 @@ namespace naive_2dge
 		SDL_FreeSurface(surface);
 	}
 
-	void engine::draw_text(const std::string& text, font::ptr font, std::uint32_t x, std::uint32_t y, std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a)
+	void engine::draw(const std::string& text, font::ptr font, std::uint32_t x, std::uint32_t y, std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a)
 	{
 		auto resource = reinterpret_cast<TTF_Font*>(font->get_resource());
 
@@ -404,7 +436,7 @@ namespace naive_2dge
 
 		auto task = std::make_unique<render_task>();
 		{
-			task->set_texture(resource2);
+			task->set_task(resource2);
 			task->set_position(x, y);
 			task->set_size(surface->w, surface->h);
 		}

@@ -33,7 +33,13 @@ namespace naive_2dge
 
 		void* get_resource();
 
-        void get_size(std::uint32_t& w, std::uint32_t& h) const;
+		void get_size(std::uint32_t& w, std::uint32_t& h) const;
+
+        std::pair<std::uint16_t, std::uint16_t> get_size() const;
+
+		void set_size(std::uint32_t w, std::uint32_t h);
+
+		void set_position(std::uint32_t x, std::uint32_t y);
 
     private:
 

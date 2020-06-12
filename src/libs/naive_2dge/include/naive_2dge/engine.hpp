@@ -10,6 +10,7 @@
 #include <naive_2dge/detail/sdl.hpp>
 
 #include <naive_2dge/image.hpp>
+#include <naive_2dge/types.hpp>
 #include <naive_2dge/texture.hpp>
 #include <naive_2dge/font.hpp>
 
@@ -31,22 +32,20 @@ namespace naive_2dge
 
 		void set_icon(std::string const& icon);
 		void set_window_size(std::uint16_t width, std::uint16_t height);
+		std::pair<std::uint16_t, std::uint16_t> get_window_size();
 
 		void set_assets_dir(std::string const& assets_dir);
         bool keep_running();
         void render();
 
         SDL_Event& get_input();
-        void exit(int exit_code);
-        int get_exit_code();
+		void exit(int exit_code);
+		void cancel_exit();
+		int get_exit_code();
 
-        void enable_debug(bool enabled = true);
-        bool is_debug_enabled();
-
-        void set_fullscreen(bool enabled, bool real = true);
-        uint32_t get_screen_width() const;
-        uint32_t get_screen_height() const;
-
+		void show_cursor(bool enabled) const;
+		float get_fps() const;
+		
 		image::ptr create_image(const std::string& name, const std::string& path);
 		image::ptr get_image(const std::string& name);
 
@@ -57,9 +56,13 @@ namespace naive_2dge
         font::ptr get_font(const std::string& name);
         void get_text_size(const std::string& text, font::ptr font, std::uint32_t& w, std::uint32_t& h);
 
-        void draw_image(image::ptr, std::uint32_t x, std::uint32_t y);
-		void draw_texture(texture::ptr texture, std::uint32_t x, std::uint32_t y);
-		void draw_text(const std::string& text, font::ptr font, std::uint32_t x, std::uint32_t y, std::uint8_t r = 0xff, std::uint8_t g = 0xff, std::uint8_t b = 0xff, std::uint8_t a = 0xff);
+		void draw(rectangle const& rect, colour colour);
+
+		void draw(image::ptr, std::uint32_t x, std::uint32_t y);
+
+		void draw(texture::ptr texture, std::uint32_t x, std::uint32_t y, bool stretch);
+
+		void draw(std::string const& text, font::ptr font, std::uint32_t x, std::uint32_t y, std::uint8_t r = 0xff, std::uint8_t g = 0xff, std::uint8_t b = 0xff, std::uint8_t a = 0xff);
 
     private:
 

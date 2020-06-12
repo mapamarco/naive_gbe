@@ -17,11 +17,13 @@ namespace naive_2dge
 	{
 	public:
 
-		game(const std::string& title, std::uint32_t width, std::uint32_t height);
+		game();
 
 		virtual ~game();
 
-		int run();
+		virtual int run();
+
+		void init(const std::string& title, std::uint32_t width, std::uint32_t height);
 
 	protected:
 

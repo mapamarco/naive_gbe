@@ -17,62 +17,34 @@ namespace naive_2dge
 		using state_list = std::vector<state::ptr>;
 
 		std::size_t		curr_indx_	= 0;
-		std::string		title_;
-		std::uint32_t	width_;
-		std::uint32_t	height_;
 		state_list		states_;
 		engine			engine_;
 	};
 
-	game::game(const std::string& title, std::uint32_t width, std::uint32_t height)
+	game::game()
 		: impl_(std::make_unique<game::impl>())
 	{
-		impl_->title_ = title;
-		impl_->width_ = width;
-		impl_->height_ = height;
 	}
 
 	game::~game()
 	{
 	}
 
-	engine& game::get_engine()
+	void game::init(const std::string& title, std::uint32_t width, std::uint32_t height)
 	{
-		return impl_->engine_;
-	}
-
-	std::size_t game::add_state(state::ptr state)
-	{
-		impl_->states_.emplace_back(state);
-
-		return impl_->states_.size() - 1;
-	}
-
-	void game::set_state(std::size_t indx)
-	{
-		impl_->curr_indx_ = indx;
-	}
-
-	state::ptr game::get_state(std::size_t indx)
-	{
-		return impl_->states_.at(indx);
-	}
-
-	state::ptr game::get_curr_state()
-	{
-		return get_state(impl_->curr_indx_);
+		get_engine().init(title, width, height);
 	}
 
 	int game::run()
 	{
-		state::ptr curr = get_curr_state();
-
 		auto& engine = get_engine();
-		engine.init(impl_->title_, impl_->width_, impl_->height_);
-
+		state::ptr curr = get_curr_state();
 		std::size_t next_state = impl_->curr_indx_;
 		std::size_t prev_state = next_state;
 		SDL_Event event;
+
+		for (auto state : impl_->states_)
+			state->on_create();
 
 		curr->on_enter(prev_state);
 
@@ -112,6 +84,36 @@ namespace naive_2dge
 
 		curr->on_exit();
 
+		for (auto state : impl_->states_)
+			state->on_destroy();
+
 		return engine.get_exit_code();
+	}
+
+	engine& game::get_engine()
+	{
+		return impl_->engine_;
+	}
+
+	std::size_t game::add_state(state::ptr state)
+	{
+		impl_->states_.emplace_back(state);
+
+		return impl_->states_.size() - 1;
+	}
+
+	void game::set_state(std::size_t indx)
+	{
+		impl_->curr_indx_ = indx;
+	}
+
+	state::ptr game::get_state(std::size_t indx)
+	{
+		return impl_->states_.at(indx);
+	}
+
+	state::ptr game::get_curr_state()
+	{
+		return get_state(impl_->curr_indx_);
 	}
 }

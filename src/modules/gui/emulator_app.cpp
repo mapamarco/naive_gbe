@@ -7,24 +7,21 @@
 #include "emulator_app.hpp"
 
 #include "config.hpp"
-#include "state_no_cartridge.hpp"
+#include "state_no_rom.hpp"
 #include "state_help.hpp"
 #include "state_emulating.hpp"
-using namespace naive_gbe;
 
 emulator_app::emulator_app(std::string const& assets_dir)
-	: game("naive_gbe 0.0.1", 640, 576)
-	, fps_{ 500 }
 {
 	auto& engine = get_engine();
 
-	engine.set_assets_dir(assets_dir);
+	get_engine().set_assets_dir(assets_dir);
 
-	add_state(std::make_shared<state_no_cartridge>(engine, emulator_));
+	add_state(std::make_shared<state_no_rom>(engine, emulator_));
 	add_state(std::make_shared<state_help>(engine, emulator_));
 	add_state(std::make_shared<state_emulating>(engine, emulator_));
 
-	set_state(base_state::NO_CARTRIDGE);
+	set_state(state_base::state::NO_ROM);
 }
 
 bool emulator_app::load_rom(std::string const& rom_path, std::error_code& ec)
@@ -32,7 +29,21 @@ bool emulator_app::load_rom(std::string const& rom_path, std::error_code& ec)
 	if (!emulator_.load_rom(rom_path, ec))
 		return false;
 
-	set_state(base_state::EMULATING);
+	set_state(state_base::state::EMULATING);
 
 	return true;
+}
+
+int emulator_app::run()
+{
+	auto const& ppu = emulator_.get_ppu();
+	auto scale = 4;
+	auto width = ppu.get_screen_width() * scale;
+	auto height = ppu.get_screen_height() * scale;
+
+	init("naive_gbe 0.0.1", width, height);
+
+	get_engine().set_icon("app.ico");
+
+	return game::run();
 }

@@ -17,6 +17,8 @@ namespace naive_gbe
 	{
 	public:
 
+		using win_size = std::pair<std::uint16_t, std::uint16_t>;
+
 		struct rect
 		{
 			std::uint16_t x_pos		= 0;
@@ -31,9 +33,15 @@ namespace naive_gbe
 
 		void write_to_video_ram();
 
+		std::uint16_t get_screen_width() const;
+
+		std::uint16_t get_screen_height() const;
+
 		rect get_screen() const;
 
 		rect get_window() const;
+
+		win_size get_window_size() const;
 
 		video_ram const& get_video_ram() const;
 

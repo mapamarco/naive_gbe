@@ -8,12 +8,12 @@
 
 #include "state_base.hpp"
 
-class state_help
+class state_no_rom
 	: public state_base
 {
 public:
 
-	state_help(naive_2dge::engine& engine, naive_gbe::emulator& emulator);
+	state_no_rom(naive_2dge::engine& engine, naive_gbe::emulator& emulator);
 
 	void on_create() override;
 
@@ -23,7 +23,7 @@ public:
 
 private:
 
-	std::size_t on_key_down(SDL_Event const& event);
+	std::size_t on_drop_file(SDL_Event const& event);
 
 	naive_2dge::font::ptr	font_ = nullptr;
 };

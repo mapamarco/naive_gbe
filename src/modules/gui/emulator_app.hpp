@@ -7,16 +7,13 @@
 #pragma once
 
 #include <cstdint>
-#include <unordered_map>
+#include <string>
 
-#include <naive_2dge/detail/sdl.hpp>
-#include <naive_2dge/fps_counter.hpp>
-#include <naive_2dge/engine.hpp>
 #include <naive_2dge/game.hpp>
 #include <naive_gbe/emulator.hpp>
 
-class emulator_app :
-	public naive_2dge::game
+class emulator_app
+	: public naive_2dge::game
 {
 public:
 
@@ -24,13 +21,9 @@ public:
 
 	bool load_rom(std::string const& rom_path, std::error_code& ec);
 
+	int run() override;
+
 private:
 
-	void render_display();
-
-	void render_texture(SDL_Texture* texture, SDL_Rect* src = nullptr, SDL_Rect* dst = nullptr);
-
 	naive_gbe::emulator		emulator_;
-	naive_2dge::fps_counter	fps_;
-	bool					stretch_		= false;
 };

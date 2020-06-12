@@ -9,9 +9,11 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <variant>
 
 #include <naive_2dge/image.hpp>
 #include <naive_2dge/texture.hpp>
+#include <naive_2dge/types.hpp>
 
 namespace naive_2dge
 {
@@ -19,22 +21,33 @@ namespace naive_2dge
     class render_task
     {
     public:
-        using ptr = std::shared_ptr<render_task>;
+
+		using type = std::variant<
+			image::ptr,
+			texture::ptr,
+			rectangle
+		>;
+
+		using ptr = std::shared_ptr<render_task>;
+
         render_task();
         render_task(render_task& rhs) = delete;
         render_task(render_task&& rhs) = delete;
         render_task& operator=(render_task&& rhs) = delete;
         virtual ~render_task();
 
-		image::ptr get_image();
-		texture::ptr get_texture();
+		void set_task(type task);
+		type get_task();
 
-		void set_image(image::ptr image);
-		void set_texture(texture::ptr texture);
+		void set_colour(colour fill_colour);
+		colour get_colour();
+
+		void set_stretch(bool stretch);
 		void set_position(std::uint32_t x, std::uint32_t y);
         void set_size(std::uint32_t w, std::uint32_t h);
-        void get_position(std::uint32_t& x, std::uint32_t& y) const;
-        void get_size(std::uint32_t& w, std::uint32_t& h) const;
+
+		bool get_stretch() const;
+		void get_position(std::int32_t& x, std::int32_t& y) const;
 
     private:
 

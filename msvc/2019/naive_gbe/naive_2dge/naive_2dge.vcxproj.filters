@@ -68,6 +68,9 @@
     <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\texture.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\types.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
