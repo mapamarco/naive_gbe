@@ -16,6 +16,7 @@ state_help::state_help(naive_2dge::engine& engine, naive_gbe::emulator& emulator
 
 void state_help::on_create()
 {
+	font_ = engine_.create_font("help", "JetBrainsMono-Bold.ttf", 24);
 	state_base::on_create();
 }
 
@@ -28,6 +29,13 @@ void state_help::on_enter(std::size_t prev_state)
 
 void state_help::on_update()
 {
+	auto [win_w, win_h] = engine_.get_window_size();
+	std::string text = "Help: TODO";
+	std::uint32_t text_w, text_h;
+
+	engine_.get_text_size(text, font_, text_w, text_h);
+	engine_.draw(text, font_, win_w / 2 - text_w / 2, win_h / 2 - text_h / 2);
+
 	state_base::on_update();
 }
 

@@ -16,6 +16,8 @@ state_no_rom::state_no_rom(naive_2dge::engine& engine, naive_gbe::emulator& emul
 
 void state_no_rom::on_create()
 {
+	font_ = engine_.create_font("no_rom", "JetBrainsMono-Bold.ttf", 24);
+
 	state_base::on_create();
 }
 
@@ -28,6 +30,13 @@ void state_no_rom::on_enter(std::size_t prev_state)
 
 void state_no_rom::on_update()
 {
+	auto [win_w, win_h] = engine_.get_window_size();
+	std::string text = "Drag and Drop your ROM here";
+	std::uint32_t text_w, text_h;
+
+	engine_.get_text_size(text, font_, text_w, text_h);
+	engine_.draw(text, font_, win_w / 2 - text_w / 2, win_h / 2 - text_h / 2);
+
 	state_base::on_update();
 }
 

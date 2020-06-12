@@ -96,6 +96,18 @@ std::size_t state_base::on_key_down(SDL_Event const& event)
 	case SDLK_q:
 		next_state_ = on_quit();
 		break;
+	case SDLK_1:
+		set_scale(scale_mode::NO_SCALING);
+		break;
+	case SDLK_2:
+		set_scale(scale_mode::SCALED_2X);
+		break;
+	case SDLK_3:
+		set_scale(scale_mode::SCALED_3X);
+		break;
+	case SDLK_4:
+		set_scale(scale_mode::SCALED_4X);
+		break;
 	case SDLK_F1:
 		next_state_ = state::HELP;
 		break;
@@ -105,9 +117,42 @@ std::size_t state_base::on_key_down(SDL_Event const& event)
 	case SDLK_F3:
 		flags_ ^= flags::STRETCH;
 		break;
+	case SDLK_RETURN:
+		if (event.key.keysym.mod & KMOD_ALT)
+			engine_.toggle_fullscreen();
+		break;
 	}
 
 	return next_state_;
+}
+
+void state_base::set_scale(scale_mode mode)
+{
+	if (engine_.is_fullscreen())
+		return;
+
+	auto window = emulator_.get_ppu().get_window();
+	auto scale = 1;
+
+	switch (mode)
+	{
+	case scale_mode::NO_SCALING:
+		break;
+	case scale_mode::SCALED_2X:
+		scale = 2;
+		break;
+	case scale_mode::SCALED_3X:
+		scale = 3;
+		break;
+	case scale_mode::SCALED_4X:
+		scale = 4;
+		break;
+	}
+
+	auto width = window.width * scale;
+	auto height = window.height * scale;
+
+	engine_.set_window_size(width, height);
 }
 
 std::string state_base::fps_fmt(float fps)

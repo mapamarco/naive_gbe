@@ -27,14 +27,6 @@ private:
 
 	using pallete = std::unordered_map<std::uint8_t, std::uint32_t>;
 
-	enum class scale_mode
-	{
-		NO_SCALING,
-		SCALED_2X,
-		SCALED_3X,
-		SCALED_4X,
-	};
-
 	std::size_t on_key_down(SDL_Event const& event);
 
 	void toggle_pause();

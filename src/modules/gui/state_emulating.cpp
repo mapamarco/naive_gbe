@@ -71,18 +71,6 @@ std::size_t state_emulating::on_key_down(SDL_Event const& event)
 {
 	switch (event.key.keysym.sym)
 	{
-	case SDLK_1:
-		set_scale(scale_mode::NO_SCALING);
-		break;
-	case SDLK_2:
-		set_scale(scale_mode::SCALED_2X);
-		break;
-	case SDLK_3:
-		set_scale(scale_mode::SCALED_3X);
-		break;
-	case SDLK_4:
-		set_scale(scale_mode::SCALED_4X);
-		break;
 	case SDLK_F10:
 		++num_steps_;
 		break;
@@ -90,10 +78,7 @@ std::size_t state_emulating::on_key_down(SDL_Event const& event)
 		num_steps_ += 24902 - 10;
 		break;
 	case SDLK_RETURN:
-		if (event.key.keysym.mod & KMOD_ALT)
-			engine_.toggle_fullscreen();
-		else
-			toggle_pause();
+		toggle_pause();
 		break;
 	case SDLK_r:
 		emulator_.get_cpu().reset();

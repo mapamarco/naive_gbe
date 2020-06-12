@@ -29,6 +29,14 @@ public:
 		DEBUG		= 1 << 1,
 	};
 
+	enum class scale_mode
+	{
+		NO_SCALING,
+		SCALED_2X,
+		SCALED_3X,
+		SCALED_4X,
+	};
+
 	state_base(naive_2dge::engine& engine, naive_gbe::emulator& emulator, std::size_t next_state);
 
 	virtual void on_create() override;
@@ -44,6 +52,8 @@ protected:
 	std::size_t on_key_down(SDL_Event const& event);
 
 	void on_update_debug();
+
+	void set_scale(scale_mode mode);
 
 	std::string fps_fmt(float fps);
 
