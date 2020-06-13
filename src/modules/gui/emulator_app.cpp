@@ -17,9 +17,9 @@ emulator_app::emulator_app(std::string const& assets_dir)
 
 	get_engine().set_assets_dir(assets_dir);
 
-	add_state(std::make_shared<state_no_rom>(engine, emulator_));
-	add_state(std::make_shared<state_help>(engine, emulator_));
-	add_state(std::make_shared<state_emulating>(engine, emulator_));
+	add_state(std::make_shared<state_no_rom>(engine, data_, emulator_));
+	add_state(std::make_shared<state_help>(engine, data_, emulator_));
+	add_state(std::make_shared<state_emulating>(engine, data_, emulator_));
 
 	set_state(state_base::state::NO_ROM);
 }
@@ -43,7 +43,12 @@ int emulator_app::run()
 
 	init("naive_gbe 0.0.1", width, height);
 
-	get_engine().set_icon("app.ico");
+	auto& engine = get_engine();
+
+	engine.set_icon("app.ico");
+
+	data_.debug_font_ = engine.create_font("debug", "JetBrainsMono-Bold.ttf", 20);
+	data_.help_font_ = engine.create_font("help", "JetBrainsMono-Bold.ttf", 30);
 
 	return game::run();
 }

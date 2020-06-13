@@ -57,7 +57,11 @@ namespace naive_gbe
 		buffer get_bootstrap() const;
 
 		cartridge						cartridge_;
+
 		buffer							bootstrap_;
+
 		std::vector<std::uint8_t>		memory_;
+
+		bool							restart_ = true;
 	};
 }

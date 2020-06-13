@@ -152,7 +152,6 @@
     <ClCompile Include="..\..\..\..\src\libs\naive_2dge\fps_counter.cpp" />
     <ClCompile Include="..\..\..\..\src\libs\naive_2dge\game.cpp" />
     <ClCompile Include="..\..\..\..\src\libs\naive_2dge\image.cpp" />
-    <ClCompile Include="..\..\..\..\src\libs\naive_2dge\render_task.cpp" />
     <ClCompile Include="..\..\..\..\src\libs\naive_2dge\state.cpp" />
     <ClCompile Include="..\..\..\..\src\libs\naive_2dge\texture.cpp" />
   </ItemGroup>
@@ -163,7 +162,6 @@
     <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\fps_counter.hpp" />
     <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\game.hpp" />
     <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\image.hpp" />
-    <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\render_task.hpp" />
     <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\state.hpp" />
     <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\texture.hpp" />
     <ClInclude Include="..\..\..\..\src\libs\naive_2dge\include\naive_2dge\types.hpp" />

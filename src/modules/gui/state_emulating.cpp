@@ -7,29 +7,22 @@
 #include "state_emulating.hpp"
 using namespace naive_gbe;
 
-state_emulating::state_emulating(naive_2dge::engine& engine, naive_gbe::emulator& emulator)
-	: state_base(engine, emulator, state::EMULATING)
+state_emulating::state_emulating(naive_2dge::engine& engine, emulator_data& data, naive_gbe::emulator& emulator)
+	: state_base(engine, data, emulator, state::EMULATING)
 {
-	keymap_ = get_default_keymap();
-
 	using namespace std::placeholders;
 	add_event_handler(SDL_KEYDOWN, std::bind(&state_emulating::on_key_down, this, _1));
+	add_event_handler(SDL_KEYUP, std::bind(&state_emulating::on_key_up, this, _1));
+
+	pallete_ = create_pallete();
 }
 
 void state_emulating::on_create()
 {
 	state_base::on_create();
 
-	font_ = engine_.create_font("debug", "JetBrainsMono-Bold.ttf", 24);
-
-	pallete_ = create_pallete();
-
-	keymap_ = get_default_keymap();
-
 	auto& ppu = emulator_.get_ppu();
 	vram_ = engine_.create_texture("vram", ppu.get_screen_width(), ppu.get_screen_height());
-
-	set_scale(scale_mode::SCALED_4X);
 }
 
 void state_emulating::on_enter(std::size_t prev_state)
@@ -43,7 +36,14 @@ void state_emulating::on_update()
 {
 	if (!paused_)
 	{
-		num_steps_ += emulator_.run();
+		using cpu_state = naive_gbe::lr35902::state;
+		auto& cpu = emulator_.get_cpu();
+
+		while (steps_to_run_ && cpu.get_state() == cpu_state::READY)
+		{
+			cpu.step();
+			--steps_to_run_;
+		}
 
 		update_vram();
 	}
@@ -56,7 +56,7 @@ void state_emulating::on_update()
 
 	vram_->set_size(width, height);
 
-	engine_.draw(vram_, (win_w - width) / 2, (win_h - height) / 2, flags_ & flags::STRETCH);
+	engine_.draw(vram_, (win_w - width) / 2, (win_h - height) / 2, data_.flags_ & flags::STRETCH);
 
 	state_base::on_update();
 }
@@ -69,19 +69,81 @@ void state_emulating::toggle_pause()
 
 std::size_t state_emulating::on_key_down(SDL_Event const& event)
 {
+	using joypad_input = naive_gbe::emulator::joypad_input;
+
 	switch (event.key.keysym.sym)
 	{
+	case SDLK_1:
+		emulator_.set_joypad(joypad_input::START, true);
+		break;
+	case SDLK_2:
+		emulator_.set_joypad(joypad_input::SELECT, true);
+		break;
+	case SDLK_a:
+		emulator_.set_joypad(joypad_input::A, true);
+		break;
+	case SDLK_s:
+		emulator_.set_joypad(joypad_input::B, true);
+		break;
+	case SDLK_UP:
+		emulator_.set_joypad(joypad_input::UP, true);
+		break;
+	case SDLK_DOWN:
+		emulator_.set_joypad(joypad_input::DOWN, true);
+		break;
+	case SDLK_LEFT:
+		emulator_.set_joypad(joypad_input::LEFT, true);
+		break;
+	case SDLK_RIGHT:
+		emulator_.set_joypad(joypad_input::RIGHT, true);
+		break;
 	case SDLK_F10:
-		++num_steps_;
+		++steps_to_run_;
 		break;
 	case SDLK_F11:
-		num_steps_ += 24902 - 10;
+		steps_to_run_ += 24902 - 10;
 		break;
-	case SDLK_RETURN:
+	case SDLK_p:
 		toggle_pause();
 		break;
 	case SDLK_r:
 		emulator_.get_cpu().reset();
+		steps_to_run_ = 0;
+		break;
+	}
+
+	return next_state_;
+}
+
+std::size_t state_emulating::on_key_up(SDL_Event const& event)
+{
+	using joypad_input = naive_gbe::emulator::joypad_input;
+
+	switch (event.key.keysym.sym)
+	{
+	case SDLK_1:
+		emulator_.set_joypad(joypad_input::START, false);
+		break;
+	case SDLK_2:
+		emulator_.set_joypad(joypad_input::SELECT, false);
+		break;
+	case SDLK_a:
+		emulator_.set_joypad(joypad_input::A, false);
+		break;
+	case SDLK_s:
+		emulator_.set_joypad(joypad_input::B, false);
+		break;
+	case SDLK_UP:
+		emulator_.set_joypad(joypad_input::UP, false);
+		break;
+	case SDLK_DOWN:
+		emulator_.set_joypad(joypad_input::DOWN, false);
+		break;
+	case SDLK_LEFT:
+		emulator_.set_joypad(joypad_input::LEFT, false);
+		break;
+	case SDLK_RIGHT:
+		emulator_.set_joypad(joypad_input::RIGHT, false);
 		break;
 	}
 
@@ -105,54 +167,6 @@ state_emulating::pallete state_emulating::create_pallete() const
 	SDL_FreeFormat(format);
 
 	return pallete;
-}
-
-state_emulating::keymap state_emulating::get_default_keymap() const
-{
-	using input = emulator::joypad_input;
-
-	keymap keys;
-
-	keys[SDLK_1] = input::SELECT;
-	keys[SDLK_2] = input::START;
-	keys[SDLK_a] = input::A;
-	keys[SDLK_s] = input::B;
-	keys[SDLK_UP] = input::UP;
-	keys[SDLK_DOWN] = input::DOWN;
-	keys[SDLK_LEFT] = input::LEFT;
-	keys[SDLK_RIGHT] = input::RIGHT;
-
-	return keys;
-}
-
-void state_emulating::set_scale(scale_mode mode)
-{
-	if (engine_.is_fullscreen())
-		return;
-
-	auto window = emulator_.get_ppu().get_window();
-	auto scale = 1;
-
-	switch (mode)
-	{
-	case scale_mode::NO_SCALING:
-		break;
-	case scale_mode::SCALED_2X:
-		scale = 2;
-		break;
-	case scale_mode::SCALED_3X:
-		scale = 3;
-		break;
-	case scale_mode::SCALED_4X:
-		scale = 4;
-		break;
-	}
-
-	auto width = window.width * scale;
-	auto height = window.height * scale;
-
-	engine_.set_window_size(width, height);
-	vram_->set_size(width, height);
 }
 
 void state_emulating::update_vram()

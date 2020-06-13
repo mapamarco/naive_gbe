@@ -16,6 +16,7 @@ namespace naive_gbe
 		auto screen = get_screen();
 
 		vram_.assign(screen.width * screen.height, 0);
+		write_to_video_ram();
 	}
 
 	void ppu::write_to_video_ram()

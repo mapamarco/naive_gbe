@@ -83,7 +83,7 @@ namespace naive_2dge
 		return impl_->resource_;
 	}
 
-	void image::get_size(std::uint32_t& w, std::uint32_t& h) const
+	void image::get_size(std::uint16_t& w, std::uint16_t& h) const
 	{
 		w = impl_->w_;
 		h = impl_->h_;

@@ -6,8 +6,8 @@
 //
 #include "state_help.hpp"
 
-state_help::state_help(naive_2dge::engine& engine, naive_gbe::emulator& emulator)
-	: state_base(engine, emulator, state::HELP)
+state_help::state_help(naive_2dge::engine& engine, emulator_data& data, naive_gbe::emulator& emulator)
+	: state_base(engine, data, emulator, state::HELP)
 {
 	using namespace std::placeholders;
 
@@ -16,7 +16,6 @@ state_help::state_help(naive_2dge::engine& engine, naive_gbe::emulator& emulator
 
 void state_help::on_create()
 {
-	font_ = engine_.create_font("help", "JetBrainsMono-Bold.ttf", 24);
 	state_base::on_create();
 }
 
@@ -33,8 +32,9 @@ void state_help::on_update()
 	std::string text = "Help: TODO";
 	std::uint32_t text_w, text_h;
 
-	engine_.get_text_size(text, font_, text_w, text_h);
-	engine_.draw(text, font_, win_w / 2 - text_w / 2, win_h / 2 - text_h / 2);
+	engine_.get_text_size(text, data_.help_font_, text_w, text_h);
+
+	engine_.draw(text, data_.help_font_, win_w / 2 - text_w / 2, win_h / 2 - text_h / 2, data_.help_text_colour_);
 
 	state_base::on_update();
 }

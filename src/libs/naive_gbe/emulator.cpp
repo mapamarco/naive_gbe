@@ -103,4 +103,14 @@ namespace naive_gbe
 
 		return disasm_.decode(addr);
 	}
+
+	void emulator::set_joypad(joypad_input input, bool value)
+	{
+		joypad_.set(static_cast<std::size_t>(input), value);
+	}
+
+	emulator::joypad_state const& emulator::get_joypad() const
+	{
+		return joypad_;
+	}
 }

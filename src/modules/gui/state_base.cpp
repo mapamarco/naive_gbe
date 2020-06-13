@@ -8,10 +8,9 @@
 using namespace naive_gbe;
 using namespace naive_2dge;
 
-std::uint32_t state_base::flags_ = 0;
-
-state_base::state_base(naive_2dge::engine& engine, naive_gbe::emulator& emulator, std::size_t next_state)
+state_base::state_base(naive_2dge::engine& engine, emulator_data& data, naive_gbe::emulator& emulator, std::size_t next_state)
 	: naive_2dge::state(engine)
+	, data_(data)
 	, emulator_(emulator)
 	, next_state_(next_state)
 	, prev_state_(next_state)
@@ -24,8 +23,7 @@ state_base::state_base(naive_2dge::engine& engine, naive_gbe::emulator& emulator
 
 void state_base::on_create()
 {
-	debug_fnt_ = engine_.create_font("fps", "JetBrainsMono-Bold.ttf", 24);
-	flags_ = flags::DEBUG;
+	data_.flags_ = flags::DEBUG;
 }
 
 void state_base::on_enter(std::size_t prev_state)
@@ -35,7 +33,7 @@ void state_base::on_enter(std::size_t prev_state)
 
 void state_base::on_update()
 {
-	if (flags_ & flags::DEBUG)
+	if (data_.flags_ & flags::DEBUG)
 		on_update_debug();
 }
 
@@ -47,23 +45,13 @@ std::size_t state_base::on_quit()
 
 void state_base::on_update_debug()
 {
-	auto [w, h] = engine_.get_window_size();
+	debug(fps_fmt(engine_.get_fps()));
+	debug("NEXT_ST: " + state_fmt(next_state_));
+	debug("PREV_ST: " + state_fmt(prev_state_));
 
-	auto margin_left = w / 10;
-	auto margin_top = h / 10;
-	auto line_height = 30;
-	auto line_pos = 0;
-
-	colour bg_colour{ 32, 32, 32, 200 };
-	engine_.draw(rectangle{ 0, 0, w, h}, bg_colour);
-
-	engine_.draw(fps_fmt(engine_.get_fps()), debug_fnt_, margin_left, margin_top + line_height * line_pos++);
-	engine_.draw("NEXT_ST: " + state_fmt(next_state_), debug_fnt_, margin_left, margin_top + line_height * line_pos++);
-	engine_.draw("PREV_ST: " + state_fmt(prev_state_), debug_fnt_, margin_left, margin_top + line_height * line_pos++);
-	
-	std::string stretch = flags_& flags::STRETCH ? "TRUE" : "FALSE";
-	engine_.draw("STRETCH: " + stretch, debug_fnt_, margin_left, margin_top + line_height * line_pos++);
-	engine_.draw(" ", debug_fnt_, margin_left, margin_top + line_height * line_pos++);
+	std::string stretch = data_.flags_ & flags::STRETCH ? "TRUE" : "FALSE";
+	debug("STRETCH: " + stretch);
+	debug(" ");
 
 	auto& cpu = emulator_.get_cpu();
 
@@ -73,19 +61,24 @@ void state_base::on_update_debug()
 		<< reg_fmt(lr35902::r16::DE) << " "
 		<< reg_fmt(lr35902::r16::HL);
 
-	engine_.draw(out.str(), debug_fnt_, margin_left, margin_top + line_height * line_pos++);
+	debug(out.str());
 
 	out.str("");
 	out << reg_fmt(lr35902::r16::SP) << " "
 		<< reg_fmt(lr35902::r16::PC) << " "
-		<< "z=" << cpu.get_flag(lr35902::flags::ZERO) << " "
-		<< "n=" << cpu.get_flag(lr35902::flags::SUBTRACTION) << " "
-		<< "h=" << cpu.get_flag(lr35902::flags::HALF_CARRY) << " "
-		<< "c=" << cpu.get_flag(lr35902::flags::CARRY);
+		<< "Z=" << cpu.get_flag(lr35902::flags::ZERO) << " "
+		<< "N=" << cpu.get_flag(lr35902::flags::SUBTRACTION) << " "
+		<< "H=" << cpu.get_flag(lr35902::flags::HALF_CARRY) << " "
+		<< "C=" << cpu.get_flag(lr35902::flags::CARRY);
 
-	engine_.draw(out.str(), debug_fnt_, margin_left, margin_top + line_height * line_pos++);
+	debug(out.str());
+	debug("CYCLE: " + std::to_string(cpu.get_cycle()));
+	debug("STATE: " + cpu_state_fmt(cpu.get_state()));
+	debug("JOYPAD: " + joypad_state_fmt());
+	debug("INTERRUPTIONS: " + std::to_string(cpu.get_ime()));
+	debug("NEXT_OP: " + emulator_.disassembly());
 
-	engine_.draw(emulator_.disassembly(), debug_fnt_, margin_left, margin_top + line_height * line_pos++);
+	draw_debug_overlay();
 }
 
 std::size_t state_base::on_key_down(SDL_Event const& event)
@@ -96,26 +89,26 @@ std::size_t state_base::on_key_down(SDL_Event const& event)
 	case SDLK_q:
 		next_state_ = on_quit();
 		break;
-	case SDLK_1:
+	case SDLK_3:
 		set_scale(scale_mode::NO_SCALING);
 		break;
-	case SDLK_2:
+	case SDLK_4:
 		set_scale(scale_mode::SCALED_2X);
 		break;
-	case SDLK_3:
+	case SDLK_5:
 		set_scale(scale_mode::SCALED_3X);
 		break;
-	case SDLK_4:
+	case SDLK_6:
 		set_scale(scale_mode::SCALED_4X);
 		break;
 	case SDLK_F1:
 		next_state_ = state::HELP;
 		break;
 	case SDLK_F2:
-		flags_ ^= flags::DEBUG;
+		data_.flags_ ^= flags::DEBUG;
 		break;
 	case SDLK_F3:
-		flags_ ^= flags::STRETCH;
+		data_.flags_ ^= flags::STRETCH;
 		break;
 	case SDLK_RETURN:
 		if (event.key.keysym.mod & KMOD_ALT)
@@ -167,22 +160,51 @@ std::string state_base::fps_fmt(float fps)
 
 std::string state_base::state_fmt(std::size_t state)
 {
-	std::string state_name = "UNKNOWN";
+	std::string text = "UNKNOWN";
 
 	switch (state)
 	{
 	case state::NO_ROM:
-		state_name = "NO_ROM";
+		text = "NO_ROM";
 		break;
 	case state::HELP:
-		state_name = "HELP";
+		text = "HELP";
 		break;
 	case state::EMULATING:
-		state_name = "EMULATING";
+		text = "EMULATING";
 		break;
 	}
 
-	return state_name;
+	return text;
+}
+
+std::string state_base::joypad_state_fmt() const
+{
+	std::ostringstream out;
+
+	out << emulator_.get_joypad();
+
+	return out.str();
+}
+
+std::string state_base::cpu_state_fmt(naive_gbe::lr35902::state state)
+{
+	std::string text = "UNKNOWN";
+
+	switch (state)
+	{
+	case naive_gbe::lr35902::state::READY:
+		text = "READY";
+		break;
+	case naive_gbe::lr35902::state::STOPPED:
+		text = "STOPPED";
+		break;
+	case naive_gbe::lr35902::state::SUSPENDED:
+		text = "SUSPENDED";
+		break;
+	}
+
+	return text;
 }
 
 std::string state_base::reg_fmt(naive_gbe::lr35902::r16 reg)
@@ -219,6 +241,38 @@ std::string state_base::reg_fmt(naive_gbe::lr35902::r16 reg)
 		<< std::hex << cpu.get_register(reg);
 
 	return out.str();
+}
+
+float state_base::get_scale() const
+{
+	auto [win_w, win_h] = engine_.get_window_size();
+	auto [gbe_w, gbe_h] = emulator_.get_ppu().get_window_size();
+
+	return std::min(win_w / gbe_w, win_h / gbe_h) * 0.25f;
+}
+
+void state_base::debug(std::string message)
+{
+	data_.debug_text_.emplace_back(message);
+}
+
+void state_base::draw_debug_overlay()
+{
+	auto [w, h] = engine_.get_window_size();
+	float scale = get_scale();
+	std::int16_t margin_left = w / 20;
+	std::int16_t margin_top = h / 20;
+	std::uint16_t line_height = static_cast<std::uint16_t>(30 * scale);
+
+	engine_.draw(rectangle{ 0, 0, w, h }, data_.debug_bg_colour_);
+
+	for (auto const& text : data_.debug_text_)
+	{
+		engine_.draw(text, data_.debug_font_, margin_left, margin_top, data_.debug_text_colour_, scale);
+		margin_top += line_height;
+	}
+
+	data_.debug_text_.clear();
 }
 
 void state_base::throw_error(std::string const& description, std::string const& detail) const

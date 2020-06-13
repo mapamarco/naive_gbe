@@ -33,6 +33,9 @@
     <ClCompile Include="..\..\..\..\src\modules\gui\state_no_rom.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\..\src\modules\gui\emulator_data.cpp">
+      <Filter>Header Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
@@ -54,6 +57,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\..\src\modules\gui\state_no_rom.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\src\modules\gui\emulator_data.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -11,6 +11,8 @@
 #include <naive_2dge/types.hpp>
 #include <naive_gbe/emulator.hpp>
 
+#include "emulator_data.hpp"
+
 class state_base
 	: public naive_2dge::state
 {
@@ -37,7 +39,7 @@ public:
 		SCALED_4X,
 	};
 
-	state_base(naive_2dge::engine& engine, naive_gbe::emulator& emulator, std::size_t next_state);
+	state_base(naive_2dge::engine& engine, emulator_data& data, naive_gbe::emulator& emulator, std::size_t next_state);
 
 	virtual void on_create() override;
 
@@ -57,19 +59,27 @@ protected:
 
 	std::string fps_fmt(float fps);
 
+	std::string joypad_state_fmt() const;
+
+	std::string cpu_state_fmt(naive_gbe::lr35902::state state);
+
 	std::string state_fmt(std::size_t state);
 
 	std::string reg_fmt(naive_gbe::lr35902::r16 reg);
+
+	float get_scale() const;
+
+	void debug(std::string message);
+
+	void draw_debug_overlay();
 
 	void throw_error(std::string const& description, std::string const& detail) const;
 
 	naive_gbe::emulator&		emulator_;
 
-	naive_2dge::font::ptr		debug_fnt_;
-
 	std::size_t					prev_state_;
 
 	std::size_t					next_state_;
 
-	static std::uint32_t		flags_;
+	emulator_data&				data_;
 };

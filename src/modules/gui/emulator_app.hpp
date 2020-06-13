@@ -12,6 +12,8 @@
 #include <naive_2dge/game.hpp>
 #include <naive_gbe/emulator.hpp>
 
+#include "emulator_data.hpp"
+
 class emulator_app
 	: public naive_2dge::game
 {
@@ -26,4 +28,6 @@ public:
 private:
 
 	naive_gbe::emulator		emulator_;
+
+	emulator_data			data_;
 };

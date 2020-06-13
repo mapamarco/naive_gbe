@@ -157,6 +157,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\..\src\modules\gui\emulator_data.cpp" />
     <ClCompile Include="..\..\..\..\src\modules\gui\state_emulating.cpp" />
     <ClCompile Include="..\..\..\..\src\modules\gui\emulator_app.cpp" />
     <ClCompile Include="..\..\..\..\src\modules\gui\state_base.cpp" />
@@ -166,6 +167,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\src\modules\gui\config.hpp" />
+    <ClInclude Include="..\..\..\..\src\modules\gui\emulator_data.hpp" />
     <ClInclude Include="..\..\..\..\src\modules\gui\state_emulating.hpp" />
     <ClInclude Include="..\..\..\..\src\modules\gui\emulator_app.hpp" />
     <ClInclude Include="..\..\..\..\src\modules\gui\state_base.hpp" />

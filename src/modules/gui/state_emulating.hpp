@@ -13,7 +13,7 @@ class state_emulating
 {
 public:
 
-	state_emulating(naive_2dge::engine& engine, naive_gbe::emulator& emulator);
+	state_emulating(naive_2dge::engine& engine, emulator_data& data, naive_gbe::emulator& emulator);
 
 	void on_create() override;
 
@@ -29,25 +29,19 @@ private:
 
 	std::size_t on_key_down(SDL_Event const& event);
 
+	std::size_t on_key_up(SDL_Event const& event);
+
 	void toggle_pause();
 
 	pallete create_pallete() const;
 
-	keymap get_default_keymap() const;
-
-	void set_scale(scale_mode mode);
-
 	void update_vram();
 
-	naive_2dge::font::ptr		font_		= nullptr;
+	naive_2dge::texture::ptr	vram_			= nullptr;
 
-	naive_2dge::texture::ptr	vram_		= nullptr;
+	std::size_t					steps_to_run_	= 0;
 
-	std::size_t					num_steps_	= 0;
+	bool						paused_			= false;
 
-	bool						paused_		= false;
-
-	keymap						keymap_		= {};
-
-	pallete						pallete_	= {};
+	pallete						pallete_		= {};
 };

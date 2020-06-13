@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cstdint>
 #include <string>
+#include <bitset>
 
 #include <naive_gbe/misc.hpp>
 #include <naive_gbe/mmu.hpp>
@@ -23,6 +24,8 @@ namespace naive_gbe
 	{
 	public:
 
+		using joypad_state = std::bitset<8>;
+
 		enum class state : std::uint8_t
 		{
 			NO_CARTRIDGE,
@@ -31,7 +34,7 @@ namespace naive_gbe
 			PAUSED
 		};
 
-		enum joypad_input : std::uint8_t
+		enum class joypad_input : std::uint8_t
 		{
 			SELECT,
 			START,
@@ -63,9 +66,14 @@ namespace naive_gbe
 
 		std::string disassembly();
 
+		void set_joypad(joypad_input input, bool value);
+
+		joypad_state const& get_joypad() const;
+
 	private:
 
-		using time_point = std::chrono::high_resolution_clock::time_point;
+		using time_point	= std::chrono::high_resolution_clock::time_point;
+
 
 		state			state_		= state::NO_CARTRIDGE;
 		time_point		last_run_;
@@ -73,6 +81,7 @@ namespace naive_gbe
 		ppu				ppu_;
 		lr35902			cpu_;
 		disassembler	disasm_;
+		joypad_state	joypad_;
 	};
 
 }

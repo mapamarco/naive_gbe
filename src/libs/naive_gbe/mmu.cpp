@@ -63,10 +63,7 @@ namespace naive_gbe
 	void mmu::set_cartridge(cartridge&& cartridge)
 	{
 		cartridge_ = cartridge;
-		auto data = cartridge_.get_data();
-
-		//for (std::size_t indx = 0; indx < data.size(); ++indx)
-		//	memory_[indx] = data[indx];
+		restart_ = true;
 	}
 
 	buffer mmu::get_bootstrap() const

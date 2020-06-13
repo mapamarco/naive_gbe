@@ -5,7 +5,6 @@
 //          http://www.boost.org/LICENSE_1_0.txt)
 //
 #include <naive_2dge/engine.hpp>
-#include <naive_2dge/render_task.hpp>
 #include <naive_2dge/fps_counter.hpp>
 #include <naive_2dge/detail/sdl.hpp>
 
@@ -13,15 +12,34 @@
 #include <vector>
 #include <unordered_map>
 #include <exception>
+#include <variant>
 
 namespace naive_2dge
 {
+	struct render_task
+	{
+		using resource_type = std::variant<
+			image::ptr,
+			texture::ptr,
+			rectangle
+		>;
+
+		std::int16_t	x_			= 0;
+		std::int16_t	y_			= 0;
+		std::uint16_t	w_			= 0;
+		std::uint16_t	h_			= 0;
+		float			scale_		= 1.0f;
+		bool			stretch_	= false;
+		colour			colour_		= { 0, 0, 0, 0 };
+		resource_type	resource_	= {};
+	};
+
 	struct engine::impl
 	{
 		using font_map		= std::unordered_map<std::string, font::ptr>;
 		using image_map		= std::unordered_map<std::string, image::ptr>;
 		using texture_map	= std::unordered_map<std::string, texture::ptr>;
-		using task_list		= std::vector<render_task::ptr>;
+		using task_list		= std::vector<render_task>;
 
 		bool                keep_running_	= true;
 		int                 exit_code_		= EXIT_SUCCESS;
@@ -45,6 +63,8 @@ namespace naive_2dge
 		void close_image();
 		void close_font();
 		void close_renderer();
+		void render_texture(render_task const& task, SDL_Texture* texture);
+		void render_rectangle(render_task const& task, rectangle const& rect);
 	};
 
 	void throw_error(std::string const& description, std::string const& detail)
@@ -209,6 +229,51 @@ namespace naive_2dge
 		return impl_->keep_running_;
 	}
 
+	SDL_Rect create_sdl_rect(std::int16_t x, std::int16_t y, std::uint16_t w, std::uint16_t h, float scale)
+	{
+		return SDL_Rect
+		{
+			static_cast<int>(x * scale),
+			static_cast<int>(y * scale),
+			static_cast<int>(w * scale),
+			static_cast<int>(h * scale)
+		};
+	}
+
+	SDL_Rect create_sdl_rect(rectangle const& rect, float scale)
+	{
+		return create_sdl_rect(rect.x, rect.y, rect.w, rect.h, scale);
+	}
+
+	void engine::impl::render_texture(render_task const& task, SDL_Texture* texture)
+	{
+		SDL_Rect src = { 0, 0, task.w_, task.h_ };
+
+		if (task.stretch_)
+		{
+			if (SDL_RenderCopy(renderer_, texture, &src, nullptr))
+				throw_error("Could not render texture", SDL_GetError());
+		}
+		else
+		{
+			SDL_Rect dst = create_sdl_rect(task.x_, task.y_, task.w_, task.h_, task.scale_);
+
+			if (SDL_RenderCopy(renderer_, texture, &src, &dst))
+				throw_error("Could not render texture", SDL_GetError());
+		}
+	}
+
+	void engine::impl::render_rectangle(render_task const& task, rectangle const& rectangle)
+	{
+		SDL_Rect rect = create_sdl_rect(rectangle, task.scale_);
+
+		if (SDL_SetRenderDrawColor(renderer_, task.colour_.r, task.colour_.g, task.colour_.b, task.colour_.a))
+			throw_error("Could not set render draw color", SDL_GetError());
+
+		if (SDL_RenderFillRect(renderer_, &rect))
+			throw_error("Could not render rectangle", SDL_GetError());
+	}
+
 	void engine::render()
 	{
 		if (SDL_SetRenderDrawColor(impl_->renderer_, 0, 0, 0, 0))
@@ -217,61 +282,23 @@ namespace naive_2dge
 		if (SDL_RenderClear(impl_->renderer_))
 			throw_error("Could not clear renderer", SDL_GetError());
 
-		std::int32_t x, y;
-		std::uint32_t w, h;
-		SDL_Texture* texture = nullptr;
-		image::ptr image = nullptr;
-
-		for (auto task : impl_->tasks_)
+		for (auto const& task : impl_->tasks_)
 		{
-			auto task2 = task->get_task();
-
-			if (std::holds_alternative<image::ptr>(task2))
+			if (std::holds_alternative<image::ptr>(task.resource_))
 			{
-				auto resource = std::get<image::ptr>(task2);
-
-				resource->get_size(w, h);
-				texture = reinterpret_cast<SDL_Texture*>(resource->get_resource());
+				auto resource = std::get<image::ptr>(task.resource_);
+				auto texture = reinterpret_cast<SDL_Texture*>(resource->get_resource());
+				impl_->render_texture(task, texture);
 			}
-			else if (std::holds_alternative<texture::ptr>(task2))
+			else if (std::holds_alternative<texture::ptr>(task.resource_))
 			{
-				auto resource = std::get<texture::ptr>(task2);
-
-				resource->get_size(w, h);
-				texture = reinterpret_cast<SDL_Texture*>(resource->get_resource());
+				auto resource = std::get<texture::ptr>(task.resource_);
+				auto texture = reinterpret_cast<SDL_Texture*>(resource->get_resource());
+				impl_->render_texture(task, texture);
 			}
-			else if (std::holds_alternative<rectangle>(task2))
+			else if (std::holds_alternative<rectangle>(task.resource_))
 			{
-				auto resource = std::get<rectangle>(task2);
-
-				SDL_Rect rect{ resource.x, resource.y, resource.w, resource.h };
-
-				auto c = task->get_colour();
-
-				if (SDL_SetRenderDrawColor(impl_->renderer_, c.r, c.g, c.b, c.a))
-					throw_error("Could not render rectangle", SDL_GetError());
-
-				if (SDL_RenderFillRect(impl_->renderer_, &rect))
-					throw_error("Could not render rectangle", SDL_GetError());
-
-				continue;
-			}
-
-			task->get_position(x, y);
-
-			SDL_Rect src = { 0, 0, static_cast<int>(w), static_cast<int>(h) };
-
-			if (task->get_stretch())
-			{
-				if (SDL_RenderCopy(impl_->renderer_, texture, &src, nullptr))
-					throw_error("Could not render texture", SDL_GetError());
-			}
-			else
-			{
-				SDL_Rect dst = { x, y, static_cast<int>(w), static_cast<int>(h) };
-
-				if (SDL_RenderCopy(impl_->renderer_, texture, &src, &dst))
-					throw_error("Could not render texture", SDL_GetError());
+				impl_->render_rectangle(task, std::get<rectangle>(task.resource_));
 			}
 		}
 
@@ -296,11 +323,6 @@ namespace naive_2dge
 	int engine::get_exit_code()
 	{
 		return impl_->exit_code_;
-	}
-
-	SDL_Event& engine::get_input()
-	{
-		return impl_->event_;
 	}
 
 	float engine::get_fps() const
@@ -373,32 +395,37 @@ namespace naive_2dge
 
 	void engine::draw(rectangle const& rect, colour colour)
 	{
-		auto task = std::make_unique<render_task>();
+		render_task task;
 
-		task->set_task(rect);
-		task->set_colour(colour);
-		impl_->tasks_.push_back(std::move(task));
+		task.resource_ = rect;
+		task.colour_ = colour;
+
+		impl_->tasks_.emplace_back(std::move(task));
 	}
 
 	void engine::draw(image::ptr image, std::uint32_t x, std::uint32_t y)
 	{
-		auto task = std::make_unique<render_task>();
+		render_task task;
 
-		task->set_task(image);
-		task->set_position(x, y);
+		task.resource_ = image;
+		task.x_ = x;
+		task.y_ = y;
+		image->get_size(task.w_, task.h_);
 
-		impl_->tasks_.push_back(std::move(task));
+		impl_->tasks_.emplace_back(std::move(task));
 	}
 
 	void engine::draw(texture::ptr texture, std::uint32_t x, std::uint32_t y, bool stretch)
 	{
-		auto task = std::make_unique<render_task>();
+		render_task task;
 
-		task->set_task(texture);
-		task->set_position(x, y);
-		task->set_stretch(stretch);
+		task.resource_ = texture;
+		task.x_ = x;
+		task.y_ = y;
+		texture->get_size(task.w_, task.h_);
+		task.stretch_ = stretch;
 
-		impl_->tasks_.push_back(std::move(task));
+		impl_->tasks_.emplace_back(std::move(task));
 	}
 
 	void engine::get_text_size(const std::string& text, font::ptr font, std::uint32_t& w, std::uint32_t& h)
@@ -420,28 +447,28 @@ namespace naive_2dge
 		SDL_FreeSurface(surface);
 	}
 
-	void engine::draw(const std::string& text, font::ptr font, std::uint32_t x, std::uint32_t y, std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a)
+	void engine::draw(std::string const& text, font::ptr font, std::uint16_t x, std::uint16_t y, colour c, float scale)
 	{
-		auto resource = reinterpret_cast<TTF_Font*>(font->get_resource());
+		auto font_raw = reinterpret_cast<TTF_Font*>(font->get_resource());
 
-		SDL_Surface* surface = TTF_RenderText_Solid(resource, text.c_str(), SDL_Color{ r, g, b, a });
+		SDL_Surface* surface = TTF_RenderText_Solid(font_raw, text.c_str(), SDL_Color{ c.r, c.g, c.b, c.a });
 
 		if (!surface)
 			throw_error("failed to render text '" + text + "'", TTF_GetError());
 
-		auto resource2 = std::make_shared<texture>();
-		{
-			resource2->create(surface, impl_->renderer_);
-		}
+		auto resource = std::make_shared<texture>();
+		resource->create(surface, impl_->renderer_);
 
-		auto task = std::make_unique<render_task>();
-		{
-			task->set_task(resource2);
-			task->set_position(x, y);
-			task->set_size(surface->w, surface->h);
-		}
+		render_task task;
 
-		impl_->tasks_.push_back(std::move(task));
+		task.resource_ = resource;
+		task.x_ = x;
+		task.y_ = y;
+		task.w_ = surface->w;
+		task.h_ = surface->h;
+		task.scale_ = scale;
+
+		impl_->tasks_.emplace_back(std::move(task));
 
 		SDL_FreeSurface(surface);
 	}

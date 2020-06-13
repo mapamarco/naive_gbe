@@ -13,7 +13,7 @@ class state_help
 {
 public:
 
-	state_help(naive_2dge::engine& engine, naive_gbe::emulator& emulator);
+	state_help(naive_2dge::engine& engine, emulator_data& data, naive_gbe::emulator& emulator);
 
 	void on_create() override;
 
@@ -24,6 +24,4 @@ public:
 private:
 
 	std::size_t on_key_down(SDL_Event const& event);
-
-	naive_2dge::font::ptr	font_ = nullptr;
 };
