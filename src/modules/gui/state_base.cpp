@@ -15,10 +15,8 @@ state_base::state_base(naive_2dge::engine& engine, emulator_data& data, naive_gb
 	, next_state_(next_state)
 	, prev_state_(next_state)
 {
-	using namespace std::placeholders;
-
 	add_event_handler(SDL_QUIT, std::bind(&state_base::on_quit, this));
-	add_event_handler(SDL_KEYDOWN, std::bind(&state_base::on_key_down, this, _1));
+	add_event_handler(SDL_KEYDOWN, std::bind(&state_base::on_key_down, this, std::placeholders::_1));
 }
 
 void state_base::on_create()
@@ -45,6 +43,9 @@ std::size_t state_base::on_quit()
 
 void state_base::on_update_debug()
 {
+	if (!(data_.flags_ & flags::DEBUG))
+		return;
+
 	debug(fps_fmt(engine_.get_fps()));
 	debug("NEXT_ST: " + state_fmt(next_state_));
 	debug("PREV_ST: " + state_fmt(prev_state_));
@@ -253,7 +254,8 @@ float state_base::get_scale() const
 
 void state_base::debug(std::string message)
 {
-	data_.debug_text_.emplace_back(message);
+	if (data_.flags_ & flags::DEBUG)
+		data_.debug_text_.emplace_back(message);
 }
 
 void state_base::draw_debug_overlay()
@@ -262,7 +264,7 @@ void state_base::draw_debug_overlay()
 	float scale = get_scale();
 	std::int16_t margin_left = w / 20;
 	std::int16_t margin_top = h / 20;
-	std::uint16_t line_height = static_cast<std::uint16_t>(30 * scale);
+	std::uint16_t line_height = 30;
 
 	engine_.draw(rectangle{ 0, 0, w, h }, data_.debug_bg_colour_);
 

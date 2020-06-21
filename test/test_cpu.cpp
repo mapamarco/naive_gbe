@@ -15,9 +15,23 @@ class mmu_buf :
 	public mmu
 {
 public:
+
+	void reset() override
+	{
+	}
+
 	void set_data(std::initializer_list<std::uint8_t> data)
 	{
-		memory_.assign(0x10000, 0);
+		std::size_t addr = 0x0000;
+		std::uint8_t* ptr = nullptr;
+
+		invalid_.assign(0x10000, 0);
+
+		addr = 0x0000;
+		ptr = invalid_.data();
+		while (addr < 0x10000)
+			memory_[addr++].set(ptr++, address::access_mode::READ_WRITE);
+
 
 		auto it1 = std::begin(data);
 		auto it2 = std::begin(memory_);

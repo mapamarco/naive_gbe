@@ -50,6 +50,8 @@ namespace naive_gbe
 
 		state get_state() const;
 
+		void reset();
+
 		void set_cartridge(cartridge&& cartridge);
 
 		void set_bootstrap(buffer&& bootstrap);

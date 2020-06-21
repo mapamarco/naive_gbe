@@ -78,10 +78,14 @@ http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf
 
 https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
 
+http://www.devrs.com/gb/files/opcodes.html
+
 http://gameboy.mongenel.com/dmg/asmmemmap.html
 
 https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM
 
 https://gbdev.gg8.se/wiki/articles/Video_Display
+
+https://gbdev.gg8.se/wiki/articles/The_Cartridge_Header
 
 https://realboyemulator.wordpress.com

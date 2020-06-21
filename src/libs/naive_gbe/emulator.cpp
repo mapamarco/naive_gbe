@@ -21,6 +21,12 @@ namespace naive_gbe
 		return state_;
 	}
 
+	void emulator::reset()
+	{
+		cpu_.reset();
+		mmu_.reset();
+	}
+
 	void emulator::set_cartridge(cartridge&& cartridge)
 	{
 		mmu_.set_cartridge(std::move(cartridge));

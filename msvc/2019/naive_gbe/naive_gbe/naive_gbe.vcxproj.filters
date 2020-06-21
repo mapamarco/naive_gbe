@@ -36,6 +36,9 @@
     <ClCompile Include="..\..\..\..\src\libs\naive_gbe\ppu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\..\src\libs\naive_gbe\address.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\src\libs\naive_gbe\include\naive_gbe\benchmark.hpp">
@@ -63,6 +66,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\..\src\libs\naive_gbe\include\naive_gbe\types.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\src\libs\naive_gbe\include\naive_gbe\address.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

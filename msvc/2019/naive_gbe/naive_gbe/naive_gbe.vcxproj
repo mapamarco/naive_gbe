@@ -90,6 +90,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>../../../../src/libs/naive_gbe/include</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -106,6 +107,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>../../../../src/libs/naive_gbe/include</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -122,6 +124,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>../../../../src/libs/naive_gbe/include</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -138,6 +141,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>../../../../src/libs/naive_gbe/include</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -150,6 +154,7 @@
     <Text Include="..\..\..\..\src\libs\naive_gbe\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\..\src\libs\naive_gbe\address.cpp" />
     <ClCompile Include="..\..\..\..\src\libs\naive_gbe\cartridge.cpp" />
     <ClCompile Include="..\..\..\..\src\libs\naive_gbe\cpu.cpp" />
     <ClCompile Include="..\..\..\..\src\libs\naive_gbe\emulator.cpp" />
@@ -158,6 +163,7 @@
     <ClCompile Include="..\..\..\..\src\libs\naive_gbe\ppu.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\..\src\libs\naive_gbe\include\naive_gbe\address.hpp" />
     <ClInclude Include="..\..\..\..\src\libs\naive_gbe\include\naive_gbe\benchmark.hpp" />
     <ClInclude Include="..\..\..\..\src\libs\naive_gbe\include\naive_gbe\cartridge.hpp" />
     <ClInclude Include="..\..\..\..\src\libs\naive_gbe\include\naive_gbe\cpu.hpp" />

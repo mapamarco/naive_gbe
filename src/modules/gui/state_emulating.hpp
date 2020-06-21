@@ -41,6 +41,8 @@ private:
 
 	std::size_t					steps_to_run_	= 0;
 
+	std::size_t					steps_			= 0;
+
 	bool						paused_			= false;
 
 	pallete						pallete_		= {};

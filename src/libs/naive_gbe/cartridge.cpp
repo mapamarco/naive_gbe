@@ -29,7 +29,7 @@ bool cartridge::load(std::string const& file_name, std::error_code& ec)
 	return true;
 }
 
-buffer const& cartridge::get_data() const
+buffer& cartridge::get_data()
 {
 	return data_;
 }

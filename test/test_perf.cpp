@@ -16,7 +16,7 @@ using namespace naive_gbe;
 	#define BASELINE_MUL_FACTOR	5
 #endif
 
-TEST(performance, bootstrap)
+TEST(DISABLED_performance, bootstrap)
 {
 	emulator emu;
 
@@ -26,7 +26,7 @@ TEST(performance, bootstrap)
 
 	auto& cpu = emu.get_cpu();
 
-	std::size_t num_samples = 100;
+	std::size_t num_samples = 1;
 	benchmark<std::chrono::microseconds> b{ num_samples };
 
 	std::size_t num_steps = 0;

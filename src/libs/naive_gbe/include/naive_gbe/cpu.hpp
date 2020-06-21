@@ -120,7 +120,7 @@ namespace naive_gbe
 
 		auto get_ref(r8 reg);
 
-		std::uint8_t& get_hl_ref();
+		address& get_hl_ref();
 
 		std::uint8_t swap_nibbles(std::uint8_t value) const;
 
@@ -144,23 +144,41 @@ namespace naive_gbe
 
 		void compare(std::uint8_t lhs, std::uint8_t rhs, std::uint8_t& flags);
 
+		void left_rotate(address& addr, std::uint8_t& flags);
+
 		void left_rotate(std::uint8_t& value, std::uint8_t& flags);
+
+		void left_rotate_carry(address& addr, std::uint8_t& flags);
 
 		void left_rotate_carry(std::uint8_t& value, std::uint8_t& flags);
 
+		void increment(address& addr, std::uint8_t& flags);
+
 		void increment(std::uint8_t& value, std::uint8_t& flags);
 
+		void decrement(address& addr, std::uint8_t& flags);
+
 		void decrement(std::uint8_t& value, std::uint8_t& flags);
+
+		void add(address& lhs, std::uint8_t rhs, std::uint8_t carry, std::uint8_t& flags);
 
 		void add(std::uint8_t& lhs, std::uint8_t rhs, std::uint8_t carry, std::uint8_t& flags);
 
 		void sub(std::uint8_t& lhs, std::uint8_t rhs, std::uint8_t carry, std::uint8_t& flags);
 
+		void right_rotate(address& addr, std::uint8_t& flags);
+
 		void right_rotate(std::uint8_t& value, std::uint8_t& flags);
+
+		void right_rotate_carry(address& addr, std::uint8_t& flags);
 
 		void right_rotate_carry(std::uint8_t& value, std::uint8_t& flags);
 
+		void left_shift_u8(address& addr, std::uint8_t& flags);
+
 		void left_shift_u8(std::uint8_t& value, std::uint8_t& flags);
+
+		void right_shift_u8(address& value, std::uint8_t& flags);
 
 		void right_shift_u8(std::uint8_t& value, std::uint8_t& flags);
 
@@ -302,9 +320,9 @@ namespace naive_gbe
 
 		void op_ld_r8_c(std::uint8_t& lhs, std::uint8_t rhs);
 
-		void op_ldh_a8_r8(std::uint8_t rhs);
+		void op_ldh_a8_r8(std::uint8_t& rhs);
 
-		void op_ldh_r8_a8(std::uint8_t& lhs);
+		void op_ldh_r8_a8(std::uint8_t rhs);
 
 		void op_ld_r8_de(std::uint8_t& reg);
 

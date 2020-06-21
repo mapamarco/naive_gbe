@@ -39,11 +39,22 @@ void state_emulating::on_update()
 		using cpu_state = naive_gbe::lr35902::state;
 		auto& cpu = emulator_.get_cpu();
 
-		while (steps_to_run_ && cpu.get_state() == cpu_state::READY)
-		{
-			cpu.step();
-			--steps_to_run_;
-		}
+		//while (steps_to_run_ && cpu.get_state() == cpu_state::READY)
+		//{
+		//	cpu.step();
+		//	--steps_to_run_;
+		//	++steps_;
+		//}
+
+		steps_ += emulator_.run();
+
+		auto& mmu = emulator_.get_mmu();
+
+		debug("STEPS: " + std::to_string(steps_));
+
+		debug("LCDC : " + std::to_string((int)mmu[naive_gbe::ppu::IO_REG_LCDC]));
+		debug("SCY  : " + std::to_string((int)mmu[naive_gbe::ppu::IO_REG_SCY]));
+		debug("LY   : " + std::to_string((int)mmu[naive_gbe::ppu::IO_REG_LY]));
 
 		update_vram();
 	}
@@ -97,17 +108,24 @@ std::size_t state_emulating::on_key_down(SDL_Event const& event)
 	case SDLK_RIGHT:
 		emulator_.set_joypad(joypad_input::RIGHT, true);
 		break;
+	case SDLK_F8:
+		steps_to_run_ += 50;
+		break;
+	case SDLK_F9:
+		steps_to_run_ += 1024;
+		break;
 	case SDLK_F10:
 		++steps_to_run_;
 		break;
 	case SDLK_F11:
-		steps_to_run_ += 24902 - 10;
+		steps_to_run_ += 24880;
+		//steps_to_run_ += 24902 - 10;
 		break;
 	case SDLK_p:
 		toggle_pause();
 		break;
 	case SDLK_r:
-		emulator_.get_cpu().reset();
+		emulator_.reset();
 		steps_to_run_ = 0;
 		break;
 	}

@@ -23,7 +23,7 @@ namespace naive_gbe
 
 		bool load(std::string const& file_name, std::error_code& ec);
 
-		buffer const& get_data() const;
+		buffer& get_data();
 
 	protected:
 

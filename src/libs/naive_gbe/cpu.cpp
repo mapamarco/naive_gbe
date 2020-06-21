@@ -83,7 +83,9 @@ namespace naive_gbe
 		auto& op = ops[fetch_u8()];
 
 		op.func_();
+
 		cycle_ += op.cycles_;
+		ppu_.run(cycle_);
 	}
 
 	std::uint8_t lr35902::fetch_u8()
@@ -106,7 +108,7 @@ namespace naive_gbe
 
 		set_register(r16::PC, addr + 2);
 
-		return reinterpret_cast<std::uint16_t&>(mmu_[addr]);
+		return static_cast<std::uint16_t>(mmu_[addr + 1]) << 8 | mmu_[addr];
 	}
 
 	void lr35902::set_flags(uint8_t flags)
@@ -130,7 +132,7 @@ namespace naive_gbe
 		return std::ref(registers_[(std::uint8_t)reg]);
 	}
 
-	std::uint8_t& lr35902::get_hl_ref()
+	address& lr35902::get_hl_ref()
 	{
 		return mmu_[get_register(r16::HL)];
 	}
@@ -223,6 +225,14 @@ namespace naive_gbe
 			flags |= flags::ZERO;
 	}
 
+	void lr35902::left_rotate(address& addr, std::uint8_t& flags)
+	{
+		std::uint8_t value = addr;
+
+		left_rotate(value, flags);
+		addr = value;
+	}
+
 	void lr35902::left_rotate(std::uint8_t& value, std::uint8_t& flags)
 	{
 		flags = 0;
@@ -233,6 +243,14 @@ namespace naive_gbe
 		value = (value >> 1) | (value << 7);
 
 		set_zero_flag(value, flags);
+	}
+
+	void lr35902::left_rotate_carry(address& addr, std::uint8_t& flags)
+	{
+		std::uint8_t value = addr;
+
+		left_rotate_carry(value, flags);
+		addr = value;
 	}
 
 	void lr35902::left_rotate_carry(std::uint8_t& value, std::uint8_t& flags)
@@ -249,6 +267,13 @@ namespace naive_gbe
 		set_zero_flag(value, flags);
 	}
 
+	void lr35902::increment(address& addr, std::uint8_t& flags)
+	{
+		std::uint8_t value = addr;
+		increment(value, flags);
+		addr = value;
+	}
+
 	void lr35902::increment(std::uint8_t& value, std::uint8_t& flags)
 	{
 		flags &= flags::CARRY;
@@ -258,6 +283,13 @@ namespace naive_gbe
 		set_half_carry_and_zero_flags(value, flags);
 	}
 
+	void lr35902::decrement(address& addr, std::uint8_t& flags)
+	{
+		std::uint8_t value = addr;
+		decrement(value, flags);
+		addr = value;
+	}
+
 	void lr35902::decrement(std::uint8_t& value, std::uint8_t& flags)
 	{
 		flags = (flags & flags::CARRY) | flags::SUBTRACTION;
@@ -265,6 +297,13 @@ namespace naive_gbe
 		--value;
 
 		set_half_carry_and_zero_flags(value, flags);
+	}
+
+	void lr35902::add(address& lhs, std::uint8_t rhs, std::uint8_t carry, std::uint8_t& flags)
+	{
+		std::uint8_t value = lhs;
+		add(value, rhs, carry, flags);
+		lhs = value;
 	}
 
 	void lr35902::add(std::uint8_t& lhs, std::uint8_t rhs, std::uint8_t carry, std::uint8_t& flags)
@@ -293,6 +332,14 @@ namespace naive_gbe
 		set_zero_flag(lhs, flags);
 	}
 
+	void lr35902::right_rotate(address& addr, std::uint8_t& flags)
+	{
+		std::uint8_t value = addr;
+
+		right_rotate(value, flags);
+		addr = value;
+	}
+
 	void lr35902::right_rotate(std::uint8_t& value, std::uint8_t& flags)
 	{
 		flags = 0;
@@ -303,6 +350,14 @@ namespace naive_gbe
 		value = (value << 7) | (value >> 1);
 
 		set_zero_flag(value, flags);
+	}
+
+	void lr35902::right_rotate_carry(address& addr, std::uint8_t& flags)
+	{
+		std::uint8_t value = addr;
+
+		right_rotate_carry(value, flags);
+		addr = value;
 	}
 
 	void lr35902::right_rotate_carry(std::uint8_t& value, std::uint8_t& flags)
@@ -319,6 +374,14 @@ namespace naive_gbe
 		set_zero_flag(value, flags);
 	}
 
+	void lr35902::left_shift_u8(address& addr, std::uint8_t& flags)
+	{
+		std::uint8_t value = addr;
+
+		left_shift_u8(value, flags);
+		addr = value;
+	}
+
 	void lr35902::left_shift_u8(std::uint8_t& value, std::uint8_t& flags)
 	{
 		flags = 0;
@@ -329,6 +392,14 @@ namespace naive_gbe
 		value <<= 1;
 
 		set_zero_flag(value, flags);
+	}
+
+	void lr35902::right_shift_u8(address& addr, std::uint8_t& flags)
+	{
+		std::uint8_t value = addr;
+
+		right_shift_u8(value, flags);
+		addr = value;
 	}
 
 	void lr35902::right_shift_u8(std::uint8_t& value, std::uint8_t& flags)
@@ -964,7 +1035,6 @@ namespace naive_gbe
 	// - - - -
 	void lr35902::op_nop()
 	{
-		state_ = state::STOPPED;
 	}
 
 	// STOP
@@ -1167,7 +1237,7 @@ namespace naive_gbe
 	{
 		std::int8_t offset = fetch_i8();
 
-		if (static_cast<bool>(flags & bit) == state)
+		if (static_cast<bool>(flags & bit) != state)
 		{
 			cycle_ += 4;
 			set_register(r16::PC, get_register(r16::PC) + offset);
@@ -1190,7 +1260,7 @@ namespace naive_gbe
 	{
 		std::int8_t offset = fetch_i8();
 
-		if (static_cast<bool>(flags & bit) == state)
+		if (static_cast<bool>(flags & bit) != state)
 		{
 			cycle_ += 4;
 			set_register(r16::PC, get_register(r16::PC) + offset);
@@ -1563,20 +1633,20 @@ namespace naive_gbe
 		lhs = mmu_[0xff00 + rhs];
 	}
 
-	// LDH (a8), A
-	// 2 12
-	// - - - -
-	void lr35902::op_ldh_a8_r8(std::uint8_t rhs)
-	{
-		mmu_[0xff00 + fetch_u8()] = rhs;
-	}
-
 	// LDH A, (a8)
 	// 2 12
 	// - - - -
-	void lr35902::op_ldh_r8_a8(std::uint8_t& lhs)
+	void lr35902::op_ldh_a8_r8(std::uint8_t& rhs)
 	{
-		lhs = mmu_[0xff00 + fetch_u8()];
+		rhs = mmu_[0xff00 + fetch_u8()];
+	}
+
+	// LDH (a8), A
+	// 2 12
+	// - - - -
+	void lr35902::op_ldh_r8_a8(std::uint8_t rhs)
+	{
+		mmu_[0xff00 + fetch_u8()] = rhs;
 	}
 
 	// LD A, (DE)
@@ -1812,11 +1882,13 @@ namespace naive_gbe
 	// Z 0 0 C
 	void lr35902::op_sra_hl(std::uint8_t& flags)
 	{
-		std::uint8_t& value = get_hl_ref();
+		address& hl_ref = get_hl_ref();
+		std::uint8_t value = hl_ref;
 		std::uint8_t bit7 = value & bits::B7;
 
 		right_shift_u8(value, flags);
 		value |= bit7;
+		hl_ref = value;
 	}
 
 	// CB SWAP r8
@@ -1884,7 +1956,8 @@ namespace naive_gbe
 	// - - - -
 	void lr35902::op_res_hl(std::uint8_t bit)
 	{
-		get_hl_ref() &= ~bit;
+		address& addr = get_hl_ref();
+		addr = addr & ~bit;
 	}
 
 	// CB SET n, r8
@@ -1900,7 +1973,8 @@ namespace naive_gbe
 	// - - - -
 	void lr35902::op_set_hl(std::uint8_t bit)
 	{
-		get_hl_ref() |= bit;
+		address& addr = get_hl_ref();
+		addr = addr | bit;
 	}
 }
 

@@ -8,51 +8,35 @@
 
 #include <cstdint>
 #include <vector>
+#include <functional>
 
 #include <naive_gbe/cartridge.hpp>
+#include <naive_gbe/address.hpp>
 #include <naive_gbe/types.hpp>
 
 namespace naive_gbe
 {
-
-	class address
-	{
-	public:
-
-		enum class mode : std::uint8_t
-		{
-			read_only,
-			read_write
-		};
-
-		address(buffer& data);
-
-		void set_data(buffer& data, std::size_t offset);
-
-		operator std::uint8_t();
-
-		void operator=(std::uint8_t value);
-
-	private:
-
-		std::size_t		offset_		= 0;
-		mode			mode_		= mode::read_only;
-		buffer&			data_;
-	};
-
 	class mmu
 	{
 	public:
 
 		mmu();
 
-		std::uint8_t& operator[](std::uint16_t addr);
+		address& operator[](std::uint16_t addr);
+
+		address const& operator[](std::uint16_t addr) const;
 
 		void set_bootstrap(buffer&& bootstrap);
 
 		void set_cartridge(cartridge&& cartridge);
 
+		virtual void reset();
+
 	protected:
+
+		void disable_bootstrap(std::uint8_t value);
+
+		void assign(std::uint16_t addr, std::size_t size, std::uint8_t* data, address::access_mode mode);
 
 		buffer get_bootstrap() const;
 
@@ -60,8 +44,10 @@ namespace naive_gbe
 
 		buffer							bootstrap_;
 
-		std::vector<std::uint8_t>		memory_;
+		buffer							video_ram_;
 
-		bool							restart_ = true;
+		buffer							invalid_;
+
+		std::vector<address>			memory_;
 	};
 }

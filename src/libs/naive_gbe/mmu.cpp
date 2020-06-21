@@ -6,6 +6,7 @@
 //
 #include <naive_gbe/mmu.hpp>
 
+#include <cassert>
 #include <functional>
 #include <algorithm>
 #include <iomanip>
@@ -14,43 +15,18 @@
 
 namespace naive_gbe
 {
-	address::address(buffer& data)
-		: data_(data)
-	{
-	}
-
-	void address::set_data(buffer& data, std::size_t offset)
-	{
-		data_ = data;
-		offset_ = offset;
-	}
-
-	address::operator std::uint8_t()
-	{
-		if (data_.size() < offset_)
-			return 0;
-
-		return data_[offset_];
-	}
-
-	void address::operator=(std::uint8_t value)
-	{
-		if (mode_ == mode::read_only || data_.size() < offset_)
-			return;
-
-		data_[offset_] = value;
-	}
-
 	mmu::mmu()
 	{
 		bootstrap_ = get_bootstrap();
-
-		memory_.assign(0x10000, 0);
-		for (std::size_t indx = 0; indx < bootstrap_.size(); ++indx)
-			memory_[indx] = bootstrap_[indx];
+		reset();
 	}
 
-	std::uint8_t& mmu::operator[](std::uint16_t addr)
+	address& mmu::operator[](std::uint16_t addr)
+	{
+		return memory_[addr];
+	}
+
+	address const& mmu::operator[](std::uint16_t addr) const
 	{
 		return memory_[addr];
 	}
@@ -63,7 +39,67 @@ namespace naive_gbe
 	void mmu::set_cartridge(cartridge&& cartridge)
 	{
 		cartridge_ = cartridge;
-		restart_ = true;
+
+		std::uint16_t addr = 0x0000;
+		std::uint8_t* data = nullptr;
+
+		addr = 0x0100;
+		data = cartridge_.get_data().data() + 0x0100;
+		while (addr < 0x014f)
+			memory_[addr++].set(data++, address::access_mode::READ_ONLY);
+	}
+
+	void mmu::reset()
+	{
+		memory_.assign(0x10000, address{ 0, address::access_mode::READ_WRITE });
+
+		invalid_.assign(0x10000, 0);
+		video_ram_.assign(0x2000, 0);
+
+		std::size_t addr = 0x0000;
+		std::uint8_t* data = nullptr;
+
+		addr = 0x0000;
+		data = invalid_.data();
+		while (addr < 0x10000)
+			memory_[addr++].set(data++, address::access_mode::READ_WRITE);
+
+		addr = 0x0000;
+		data = bootstrap_.data();
+		while (addr < 0x0100)
+			memory_[addr++].set(data++, address::access_mode::READ_ONLY);
+
+		addr = 0x8000;
+		data = video_ram_.data();
+		while (addr < 0x9fff)
+			memory_[addr++].set(data++, address::access_mode::READ_WRITE);
+
+		memory_[0xff50].set(std::bind(&mmu::disable_bootstrap, this, std::placeholders::_1));
+
+		if (!cartridge_.get_data().empty())
+		{
+			addr = 0x0100;
+			data = cartridge_.get_data().data() + 0x0100;
+			while (addr < 0x014f)
+				memory_[addr++].set(data++, address::access_mode::READ_ONLY);
+		}
+	}
+
+	void mmu::assign(std::uint16_t addr, std::size_t size, std::uint8_t* data, address::access_mode mode)
+	{
+		while (addr < addr + size)
+			memory_[addr++].set(data++, mode);
+	}
+
+	void mmu::disable_bootstrap(std::uint8_t value)
+	{
+		std::uint16_t addr = 0x0000;
+		std::uint8_t* data = nullptr;
+
+		addr = 0x0000;
+		data = cartridge_.get_data().data();
+		while (addr < 0x7fff)
+			memory_[addr++].set(data++, address::access_mode::READ_ONLY);
 	}
 
 	buffer mmu::get_bootstrap() const
